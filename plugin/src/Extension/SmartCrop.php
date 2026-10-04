@@ -41,15 +41,23 @@ final class SmartCrop extends CMSPlugin implements SubscriberInterface
      * Intercepts content rendering to enrich article items with SmartCrop presentation styles
      * for standard Joomla templates and layout helpers.
      *
-     * @param   string  $context  The context (e.g. 'com_content.article' or 'com_content.category')
-     * @param   object  $item     The item being rendered
-     * @param   mixed   $params   Parameters
-     * @param   int     $page     Page number
+     * Supports both modern Joomla 5/6 ContentPrepareEvent and legacy positional arguments.
+     *
+     * @param   mixed  $contextOrEvent  ContentPrepareEvent or string context
+     * @param   mixed  $item            The item being rendered (legacy)
+     * @param   mixed  $params          Parameters (legacy)
+     * @param   int    $page            Page number (legacy)
      *
      * @return  void
      */
-    public function onContentPrepare(string $context, object &$item, mixed &$params, int $page = 0): void
+    public function onContentPrepare(mixed $contextOrEvent, mixed &$item = null, mixed &$params = null, int $page = 0): void
     {
+        if (is_object($contextOrEvent) && method_exists($contextOrEvent, 'getItem')) {
+            $item = $contextOrEvent->getItem();
+        } elseif (is_object($contextOrEvent) && method_exists($contextOrEvent, 'getArgument')) {
+            $item = $contextOrEvent->getArgument('subject') ?? $contextOrEvent->getArgument('item');
+        }
+
         if (!is_object($item)) {
             return;
         }
@@ -97,7 +105,7 @@ final class SmartCrop extends CMSPlugin implements SubscriberInterface
             if (is_object($decoded)) {
                 $decoded->intro_style    = $introStyle;
                 $decoded->fulltext_style = $fullStyle;
-                $item->images = $decoded;
+                $item->images = json_encode($decoded);
             }
         } elseif (is_object($item->images)) {
             $item->images->intro_style    = $introStyle;

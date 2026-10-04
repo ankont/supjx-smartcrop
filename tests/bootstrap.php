@@ -329,3 +329,28 @@ namespace Joomla\CMS\Event\Model {
         }
     }
 }
+
+namespace Joomla\CMS\Event\Content {
+    class ContentPrepareEvent
+    {
+        private string $context;
+        private object $item;
+
+        public function __construct(string $context, object $item)
+        {
+            $this->context = $context;
+            $this->item = $item;
+        }
+
+        public function getContext(): string
+        {
+            return $this->context;
+        }
+
+        public function getItem(): object
+        {
+            return $this->item;
+        }
+    }
+}
+

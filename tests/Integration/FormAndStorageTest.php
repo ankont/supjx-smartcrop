@@ -16,6 +16,7 @@ final class FormAndStorageTest
         $this->testOnContentPrepareWithUriCrop();
         $this->testOnContentPrepareWithoutCrop();
         $this->testOnContentPrepareBothIntroAndFulltext();
+        $this->testOnContentPrepareWithEventObject();
         $this->testSubscribedEvents();
     }
 
@@ -78,9 +79,11 @@ final class FormAndStorageTest
         $this->assertTrue(str_contains($item->smartcrop_intro_style, 'transform-origin: 50% 50%;'));
         $this->assertTrue(str_contains($item->smartcrop_intro_style, 'transform: scale(1.25);'));
 
-        // Also attached to item->images
-        $this->assertTrue(isset($item->images->intro_style));
-        $this->assertSame($item->smartcrop_intro_style, $item->images->intro_style);
+        // Also attached to item->images (which remains a valid JSON string)
+        $this->assertTrue(is_string($item->images));
+        $decodedImages = json_decode($item->images);
+        $this->assertTrue(isset($decodedImages->intro_style));
+        $this->assertSame($item->smartcrop_intro_style, $decodedImages->intro_style);
     }
 
     private function testOnContentPrepareWithoutCrop(): void
@@ -127,4 +130,24 @@ final class FormAndStorageTest
         $this->assertTrue(str_contains($item->smartcrop_fulltext_style, 'object-position: 50% 37.5%;'));
         $this->assertTrue(str_contains($item->smartcrop_fulltext_style, 'transform: scale(1);'));
     }
+
+    private function testOnContentPrepareWithEventObject(): void
+    {
+        $plugin = new SmartCrop();
+
+        $item = (object) [
+            'id' => 102,
+            'title' => 'Article Dispatched Via Joomla 5 ContentPrepareEvent',
+            'images' => [
+                'image_intro' => 'images/intro.jpg#joomlaImage://...?crop=0.1,0.1,0.8,0.6&zoom=1.5',
+            ],
+        ];
+
+        $event = new \Joomla\CMS\Event\Content\ContentPrepareEvent('com_content.article', $item);
+        $plugin->onContentPrepare($event);
+
+        $this->assertTrue(!empty($item->smartcrop_intro_style));
+        $this->assertTrue(str_contains($item->smartcrop_intro_style, 'transform: scale(1.5);'));
+    }
 }
+
