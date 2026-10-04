@@ -1,0 +1,5 @@
+*.zip
+/build/stage/
+/build/output/
+.DS_Store
+Thumbs.db

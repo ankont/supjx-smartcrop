@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="plugin" group="content" method="upgrade">
+    <name>PLG_CONTENT_SMARTCROP</name>
+    <author>SuperSoft — Kontarinis Andreas</author>
+    <authorEmail>ankont@sch.gr</authorEmail>
+    <authorUrl>https://superor.wordpress.com/</authorUrl>
+    <creationDate>2026-10-05</creationDate>
+    <copyright>© 2026 SuperSoft — Kontarinis Andreas</copyright>
+    <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
+    <version>1.0.0-beta1</version>
+    <description>PLG_CONTENT_SMARTCROP_XML_DESCRIPTION</description>
+    <namespace path="src">SuperSoftJx\Plugin\Content\SmartCrop</namespace>
+
+    <files>
+        <filename plugin="smartcrop">smartcrop.xml</filename>
+        <folder plugin="smartcrop">services</folder>
+        <folder>src</folder>
+        <folder>forms</folder>
+    </files>
+
+    <media destination="plg_content_smartcrop" folder="media">
+        <folder>css</folder>
+        <folder>js</folder>
+        <filename>joomla.asset.json</filename>
+    </media>
+
+    <languages folder="language">
+        <language tag="en-GB">en-GB/plg_content_smartcrop.ini</language>
+        <language tag="en-GB">en-GB/plg_content_smartcrop.sys.ini</language>
+        <language tag="el-GR">el-GR/plg_content_smartcrop.ini</language>
+        <language tag="el-GR">el-GR/plg_content_smartcrop.sys.ini</language>
+    </languages>
+
+    <config>
+        <fields name="params">
+            <fieldset name="basic">
+                <field
+                    name="ratio_width"
+                    type="number"
+                    label="PLG_CONTENT_SMARTCROP_PARAM_RATIO_WIDTH_LABEL"
+                    description="PLG_CONTENT_SMARTCROP_PARAM_RATIO_WIDTH_DESC"
+                    default="4"
+                    min="1"
+                    step="1"
+                    required="true"
+                />
+                <field
+                    name="ratio_height"
+                    type="number"
+                    label="PLG_CONTENT_SMARTCROP_PARAM_RATIO_HEIGHT_LABEL"
+                    description="PLG_CONTENT_SMARTCROP_PARAM_RATIO_HEIGHT_DESC"
+                    default="3"
+                    min="1"
+                    step="1"
+                    required="true"
+                />
+                <field
+                    name="preview_max_width"
+                    type="number"
+                    label="PLG_CONTENT_SMARTCROP_PARAM_PREVIEW_MAX_WIDTH_LABEL"
+                    description="PLG_CONTENT_SMARTCROP_PARAM_PREVIEW_MAX_WIDTH_DESC"
+                    default="480"
+                    min="240"
+                    max="1200"
+                    step="10"
+                />
+            </fieldset>
+        </fields>
+    </config>
+</extension>

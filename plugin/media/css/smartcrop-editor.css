@@ -1,0 +1,420 @@
+/**
+ * SuperSoftJx SmartCrop - Editor Stylesheet
+ * Version 1.0.0-beta1
+ */
+
+/* Crop Button inside .input-group */
+.input-group .smartcrop-crop-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 500;
+    white-space: nowrap;
+    z-index: 3;
+}
+
+.input-group .smartcrop-crop-btn.btn-success {
+    background-color: #198754;
+    border-color: #198754;
+    color: #ffffff;
+}
+
+.input-group .smartcrop-crop-btn.btn-success:hover {
+    background-color: #157347;
+    border-color: #146c43;
+}
+
+/* Hide legacy dashed trigger widget below field */
+.smartcrop-field-widget {
+    display: none !important;
+}
+
+.smartcrop-field-widget .smartcrop-open-modal-btn {
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.smartcrop-field-widget .smartcrop-badge {
+    font-size: 0.8rem;
+    padding: 0.35em 0.65em;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+}
+
+.smartcrop-field-widget .smartcrop-clear-btn {
+    padding: 0.2rem 0.5rem;
+    line-height: 1;
+}
+
+/* Modal Styling (Standalone overlay support independent of Bootstrap JS) */
+.smartcrop-modal {
+    display: none;
+}
+
+.smartcrop-modal.smartcrop-modal-visible,
+.smartcrop-modal.show {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 2147483640 !important;
+    background-color: rgba(0, 0, 0, 0.72) !important;
+    backdrop-filter: blur(2px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 1rem;
+    box-sizing: border-box;
+    opacity: 1 !important;
+}
+
+.smartcrop-modal.smartcrop-modal-visible .modal-dialog,
+.smartcrop-modal.show .modal-dialog {
+    width: 100%;
+    max-width: 680px;
+    margin: auto;
+    transform: none !important;
+}
+
+.smartcrop-modal .modal-content {
+    background-color: var(--bs-body-bg, #ffffff);
+    color: var(--bs-body-color, #212529);
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+}
+
+.smartcrop-modal .modal-header {
+    background: var(--bs-tertiary-bg, #f8f9fa);
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+    padding: 0.85rem 1.25rem;
+}
+
+.smartcrop-modal .modal-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.smartcrop-modal .modal-body {
+    padding: 1.15rem 1.25rem;
+}
+
+.smartcrop-modal .modal-footer {
+    background: var(--bs-tertiary-bg, #f8f9fa);
+    border-top: 1px solid var(--bs-border-color, #dee2e6);
+    padding: 0.75rem 1.25rem;
+}
+
+/* Guide Banner */
+.smartcrop-guide-banner {
+    background-color: var(--bs-tertiary-bg, #f0f4f9);
+    border: 1px solid var(--bs-border-color, #cde0f7);
+    border-radius: 6px;
+    padding: 0.65rem 0.85rem;
+    margin-bottom: 1rem;
+    font-size: 0.84rem;
+}
+
+.smartcrop-guide-banner .smartcrop-steps {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.smartcrop-guide-step {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+/* Viewport Darkroom Container */
+.smartcrop-viewport-wrapper {
+    position: relative;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    background: #0d1117;
+    border-radius: 8px;
+    border: 1px solid #30363d;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+    padding: 14px;
+}
+
+.smartcrop-viewport {
+    position: relative;
+    width: 100%;
+    max-width: var(--smartcrop-max-width, 480px);
+    overflow: hidden;
+    background: #161b22;
+    border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+}
+
+.smartcrop-viewport.is-dragging {
+    cursor: grabbing;
+}
+
+.smartcrop-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    max-width: none !important;
+    max-height: none !important;
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
+    will-change: transform;
+    transform-origin: 0 0;
+}
+
+/* Camera Viewfinder Corner Reticles */
+.smartcrop-corner {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    pointer-events: none;
+    z-index: 4;
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
+}
+
+.smartcrop-corner.tl {
+    top: 8px;
+    left: 8px;
+    border-top: 2.5px solid #ffffff;
+    border-left: 2.5px solid #ffffff;
+}
+
+.smartcrop-corner.tr {
+    top: 8px;
+    right: 8px;
+    border-top: 2.5px solid #ffffff;
+    border-right: 2.5px solid #ffffff;
+}
+
+.smartcrop-corner.bl {
+    bottom: 8px;
+    left: 8px;
+    border-bottom: 2.5px solid #ffffff;
+    border-left: 2.5px solid #ffffff;
+}
+
+.smartcrop-corner.br {
+    bottom: 8px;
+    right: 8px;
+    border-bottom: 2.5px solid #ffffff;
+    border-right: 2.5px solid #ffffff;
+}
+
+/* Viewfinder Overlay Badge */
+.smartcrop-viewfinder-badge {
+    position: absolute;
+    top: 10px;
+    left: 30px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #f0f6fc;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 4;
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Rule of Thirds Guide Grid */
+.smartcrop-grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.35;
+    transition: opacity 0.2s ease;
+    z-index: 3;
+}
+
+.smartcrop-viewport:hover .smartcrop-grid,
+.smartcrop-viewport.is-dragging .smartcrop-grid {
+    opacity: 0.65;
+}
+
+.smartcrop-grid-line {
+    position: absolute;
+    background-color: rgba(255, 255, 255, 0.65);
+    box-shadow: 0 0 1px rgba(0, 0, 0, 0.8);
+}
+
+.smartcrop-grid-line.v1 {
+    top: 0;
+    bottom: 0;
+    left: 33.3333%;
+    width: 1px;
+}
+
+.smartcrop-grid-line.v2 {
+    top: 0;
+    bottom: 0;
+    left: 66.6666%;
+    width: 1px;
+}
+
+.smartcrop-grid-line.h1 {
+    left: 0;
+    right: 0;
+    top: 33.3333%;
+    height: 1px;
+}
+
+.smartcrop-grid-line.h2 {
+    left: 0;
+    right: 0;
+    top: 66.6666%;
+    height: 1px;
+}
+
+/* Floating Pan Hint Pill */
+.smartcrop-pan-hint {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(13, 110, 253, 0.9);
+    color: #ffffff;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+    z-index: 5;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    white-space: nowrap;
+    animation: smartcrop-hint-pulse 2.2s infinite ease-in-out;
+}
+
+.smartcrop-pan-hint.is-hidden {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+    pointer-events: none;
+}
+
+@keyframes smartcrop-hint-pulse {
+    0%, 100% {
+        transform: translateX(-50%) scale(1);
+    }
+    50% {
+        transform: translateX(-50%) scale(1.04);
+        background: rgba(11, 94, 215, 0.96);
+    }
+}
+
+/* Empty State */
+.smartcrop-empty-state {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(22, 27, 34, 0.95);
+    color: #c9d1d9;
+    z-index: 6;
+    padding: 1rem;
+    text-align: center;
+}
+
+.smartcrop-empty-state .icon-picture {
+    font-size: 2.5rem;
+    opacity: 0.5;
+}
+
+/* Toolbar Controls inside Modal */
+.smartcrop-toolbar {
+    background: var(--bs-tertiary-bg, #f8f9fa);
+    padding: 0.65rem 0.85rem;
+    border-radius: 6px;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+.smartcrop-zoom-controls {
+    flex: 1 1 240px;
+    max-width: 340px;
+}
+
+.smartcrop-zoom-slider {
+    cursor: pointer;
+    flex: 1;
+}
+
+.smartcrop-zoom-value {
+    min-width: 40px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+/* Quick Zoom Presets */
+.smartcrop-presets {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.smartcrop-btn-preset {
+    font-size: 0.76rem;
+    padding: 0.2rem 0.45rem;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.smartcrop-btn-preset.is-active {
+    background-color: var(--bs-primary, #0d6efd);
+    color: #fff;
+    border-color: var(--bs-primary, #0d6efd);
+}
+
+/* Live Crop Coordinates */
+.smartcrop-live-coords-bar {
+    font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.75rem;
+    background: var(--bs-body-bg, #fff);
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 4px;
+    padding: 0.25rem 0.6rem;
+    color: var(--bs-secondary-color, #6c757d);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+@media (max-width: 576px) {
+    .smartcrop-toolbar {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+
+    .smartcrop-zoom-controls {
+        max-width: 100%;
+    }
+
+    .smartcrop-presets {
+        justify-content: center;
+    }
+}

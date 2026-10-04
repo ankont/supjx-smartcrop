@@ -1,0 +1,25 @@
+{
+  "$schema": "https://developer.joomla.org/schemas/json-schema/web_assets.json",
+  "name": "plg_content_smartcrop",
+  "version": "1.0.0-beta1",
+  "description": "SmartCrop Web Assets",
+  "license": "GPL-2.0-or-later",
+  "assets": [
+    {
+      "name": "plg_content_smartcrop.editor-style",
+      "type": "style",
+      "uri": "plg_content_smartcrop/css/smartcrop-editor.css"
+    },
+    {
+      "name": "plg_content_smartcrop.editor",
+      "type": "script",
+      "uri": "plg_content_smartcrop/js/smartcrop-editor.js",
+      "dependencies": [
+        "core"
+      ],
+      "attributes": {
+        "defer": true
+      }
+    }
+  ]
+}
