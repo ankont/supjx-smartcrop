@@ -984,8 +984,9 @@ class SmartCropManager {
     static initField(mediaEl) {
         if (!mediaEl || mediaEl._smartcropInitialized) return;
 
-        const input = mediaEl.querySelector('.field-media-input, input[type="text"]');
-        const inputGroup = input?.closest('.input-group') || mediaEl.querySelector('.input-group');
+        const input = (mediaEl.tagName === 'INPUT' ? mediaEl : null)
+                   || mediaEl.querySelector('.field-media-input, input[type="text"]');
+        const inputGroup = input?.closest('.input-group') || mediaEl.querySelector('.input-group') || mediaEl;
         if (!input || !inputGroup) return;
 
         mediaEl._smartcropInitialized = true;
@@ -996,7 +997,7 @@ class SmartCropManager {
             cropBtn.type = 'button';
             cropBtn.className = 'btn btn-outline-primary smartcrop-crop-btn';
             cropBtn.setAttribute('data-smartcrop-crop-btn', '');
-            cropBtn.innerHTML = '<span class="icon-crop" aria-hidden="true"></span> <span>Κάδρο</span>';
+            cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span> <span>Κάδρο</span>';
             cropBtn.title = 'Ορισμός κάδρου 4:3';
 
             input.insertAdjacentElement('afterend', cropBtn);
@@ -1017,11 +1018,11 @@ class SmartCropManager {
             const hasCrop = /[?&]crop=[0-9.,-]+/i.test(val);
             if (hasCrop) {
                 cropBtn.className = 'btn btn-success smartcrop-crop-btn';
-                cropBtn.innerHTML = '<span class="icon-crop" aria-hidden="true"></span> <span>✓ 4:3</span>';
+                cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span> <span>✓ 4:3</span>';
                 cropBtn.title = 'Κάδρο 4:3 ενεργό (κάντε κλικ για επεξεργασία)';
             } else {
                 cropBtn.className = 'btn btn-outline-primary smartcrop-crop-btn';
-                cropBtn.innerHTML = '<span class="icon-crop" aria-hidden="true"></span> <span>Κάδρο</span>';
+                cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span> <span>Κάδρο</span>';
                 cropBtn.title = 'Ορισμός κάδρου 4:3';
             }
         };
@@ -1153,8 +1154,9 @@ class SmartCropManager {
     }
 
     static initAll() {
-        document.querySelectorAll('joomla-field-media, .field-media-wrapper').forEach((el) => {
-            SmartCropManager.initField(el);
+        document.querySelectorAll('joomla-field-media, .field-media-wrapper, input.field-media-input').forEach((el) => {
+            const target = el.tagName === 'INPUT' ? (el.closest('joomla-field-media, .field-media-wrapper') || el.closest('.input-group') || el) : el;
+            SmartCropManager.initField(target);
         });
     }
 }
@@ -1185,7 +1187,7 @@ if (typeof window !== 'undefined') {
         modalEl.style.display = 'none';
         modalEl.setAttribute('aria-hidden', 'true');
         modalEl.removeAttribute('aria-modal');
-        document.body.classList.remove('modal-open');
+        document.body?.classList.remove('modal-open');
         if (modalEl._smartcropController) {
             try {
                 modalEl._smartcropController.closeModal();
@@ -1205,9 +1207,27 @@ const initSmartCrop = () => {
 };
 
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initSmartCrop);
+    document.addEventListener('DOMContentLoaded', () => {
+        initSmartCrop();
+        setTimeout(initSmartCrop, 150);
+        setTimeout(initSmartCrop, 500);
+        setTimeout(initSmartCrop, 1200);
+    });
 } else {
     initSmartCrop();
+    setTimeout(initSmartCrop, 150);
+    setTimeout(initSmartCrop, 500);
+    setTimeout(initSmartCrop, 1200);
+}
+
+// Re-check on tab changes (e.g. clicking 'Images and Links' tab in article edit)
+if (typeof document !== 'undefined') {
+    document.addEventListener('shown.bs.tab', () => setTimeout(initSmartCrop, 50));
+    document.addEventListener('click', (e) => {
+        if (e.target && (e.target.closest('[data-bs-toggle="tab"], [data-toggle="tab"], .nav-link, button, a') || e.target.closest('joomla-tab'))) {
+            setTimeout(initSmartCrop, 60);
+        }
+    });
 }
 
 // Observe dynamic DOM changes (e.g. AJAX-injected dialogs, tabs, SmartBrowser)
@@ -1221,7 +1241,16 @@ if (typeof window !== 'undefined' && window.MutationObserver) {
                 }
             }
         });
-        dynamicObserver.observe(document.body, { childList: true, subtree: true });
+        const startObserving = () => {
+            if (document.body) {
+                dynamicObserver.observe(document.body, { childList: true, subtree: true });
+            }
+        };
+        if (document.body) {
+            startObserving();
+        } else {
+            document.addEventListener('DOMContentLoaded', startObserving);
+        }
     } catch (err) {}
 }
 

@@ -153,10 +153,22 @@ final class SmartCrop extends CMSPlugin implements SubscriberInterface
             $doc = Factory::getApplication()->getDocument();
             if ($doc instanceof HtmlDocument) {
                 $wa = $doc->getWebAssetManager();
+                $reg = $wa->getRegistry();
+                if (!$reg->exists('script', 'plg_content_smartcrop.editor')) {
+                    $reg->addExtensionRegistryFile('plg_content_smartcrop');
+                }
                 $wa->useScript('plg_content_smartcrop.editor');
                 $wa->useStyle('plg_content_smartcrop.editor-style');
             }
         } catch (Throwable) {
+            try {
+                $doc = Factory::getApplication()->getDocument();
+                if ($doc instanceof HtmlDocument) {
+                    $doc->addScript(\Joomla\CMS\Uri\Uri::root(true) . '/media/plg_content_smartcrop/js/smartcrop-editor.js', ['version' => 'auto'], ['defer' => true]);
+                    $doc->addStyleSheet(\Joomla\CMS\Uri\Uri::root(true) . '/media/plg_content_smartcrop/css/smartcrop-editor.css', ['version' => 'auto']);
+                }
+            } catch (Throwable) {
+            }
         }
     }
 }
