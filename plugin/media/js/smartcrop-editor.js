@@ -29,13 +29,6 @@ class SmartCropModalController {
         this.currentMediaWrapper = null;
         this.currentCropBtn = null;
 
-        // Legacy parent widget elements (if present on page)
-        this.widgetEl = document.querySelector(`[data-smartcrop-widget][data-profile="${this.profile}"]`);
-        this.openBtn = this.widgetEl ? this.widgetEl.querySelector('.smartcrop-open-modal-btn, [data-smartcrop-open-modal-btn]') : null;
-        this.input = this.widgetEl ? this.widgetEl.querySelector('[data-smartcrop-input]') : null;
-        this.badge = this.widgetEl ? this.widgetEl.querySelector('[data-smartcrop-badge]') : null;
-        this.clearBtn = this.widgetEl ? this.widgetEl.querySelector('[data-smartcrop-clear-btn]') : null;
-
         // Modal internal elements
         this.viewport = this.modalEl.querySelector('[data-smartcrop-viewport]');
         this.img = this.modalEl.querySelector('[data-smartcrop-image]');
@@ -741,24 +734,6 @@ class SmartCropModalController {
             cropBtn.title = `Κάδρο ${this.ratioW}:${this.ratioH} ενεργό (κάντε κλικ για επεξεργασία)`;
         }
 
-        // 3. Backward compatibility: update legacy hidden form input if present
-        if (this.input) {
-            this.input.value = JSON.stringify(profilePayload);
-            this.input.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-
-        if (this.badge) {
-            const activeText = (window.Joomla && Joomla.Text && Joomla.Text.sprintf)
-                ? Joomla.Text.sprintf('PLG_CONTENT_SMARTCROP_STATUS_ACTIVE', this.ratioW, this.ratioH)
-                : `✓ Κάδρο ${this.ratioW}:${this.ratioH}`;
-            this.badge.textContent = activeText;
-            this.badge.className = 'smartcrop-badge badge bg-success';
-        }
-
-        if (this.clearBtn) {
-            this.clearBtn.classList.remove('d-none');
-        }
-
         this.closeModal();
     }
 
@@ -781,25 +756,7 @@ class SmartCropModalController {
             cropBtn.title = `Ορισμός κάδρου ${this.ratioW}:${this.ratioH}`;
         }
 
-        if (this.input) {
-            this.input.value = '';
-            this.input.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-
         this.storedProfile = null;
-
-        if (this.badge) {
-            const inactiveText = (window.Joomla && Joomla.Text && Joomla.Text._)
-                ? Joomla.Text._('PLG_CONTENT_SMARTCROP_STATUS_INACTIVE')
-                : 'Χωρίς κάδρο';
-            this.badge.textContent = inactiveText;
-            this.badge.className = 'smartcrop-badge badge bg-light text-muted border';
-        }
-
-        if (this.clearBtn) {
-            this.clearBtn.classList.add('d-none');
-        }
-
         this.closeModal();
     }
 

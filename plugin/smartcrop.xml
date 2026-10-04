@@ -15,7 +15,6 @@
         <filename plugin="smartcrop">smartcrop.xml</filename>
         <folder plugin="smartcrop">services</folder>
         <folder>src</folder>
-        <folder>forms</folder>
     </files>
 
     <media destination="plg_content_smartcrop" folder="media">
