@@ -771,8 +771,9 @@ class SmartCropModalController {
         const cropBtn = this.currentCropBtn || targetInput?.closest('.input-group')?.querySelector('.smartcrop-crop-btn');
         if (cropBtn) {
             cropBtn.className = 'btn btn-success smartcrop-crop-btn';
-            cropBtn.innerHTML = `<span class="icon-scissors" aria-hidden="true"></span> <span>✓ ${this.ratioW}:${this.ratioH}</span>`;
+            cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span>';
             cropBtn.title = `Κάδρο ${this.ratioW}:${this.ratioH} ενεργό (κάντε κλικ για επεξεργασία)`;
+            cropBtn.setAttribute('aria-label', `Κάδρο ${this.ratioW}:${this.ratioH} ενεργό`);
         }
 
         this.closeModal();
@@ -821,8 +822,9 @@ class SmartCropModalController {
         const cropBtn = this.currentCropBtn || targetInput?.closest('.input-group')?.querySelector('.smartcrop-crop-btn');
         if (cropBtn) {
             cropBtn.className = 'btn btn-outline-primary smartcrop-crop-btn';
-            cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span> <span>Κάδρο</span>';
-            cropBtn.title = `Ορισμός κάδρου ${this.ratioW}:${this.ratioH}`;
+            cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span>';
+            cropBtn.title = `Ορισμός κάδρου (${this.ratioW}:${this.ratioH})`;
+            cropBtn.setAttribute('aria-label', `Ορισμός κάδρου (${this.ratioW}:${this.ratioH})`);
         }
 
         this.storedProfile = null;
@@ -1115,8 +1117,9 @@ class SmartCropManager {
             cropBtn.type = 'button';
             cropBtn.className = 'btn btn-outline-primary smartcrop-crop-btn';
             cropBtn.setAttribute('data-smartcrop-crop-btn', '');
-            cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span> <span>Κάδρο</span>';
-            cropBtn.title = 'Ορισμός κάδρου 4:3';
+            cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span>';
+            cropBtn.title = 'Ορισμός κάδρου (4:3)';
+            cropBtn.setAttribute('aria-label', 'Ορισμός κάδρου (4:3)');
 
             input.insertAdjacentElement('afterend', cropBtn);
             console.log('[SmartCrop] Attached crop button to media field:', input.name || input.id || input);
@@ -1137,12 +1140,14 @@ class SmartCropManager {
             const hasCrop = /[?&]crop=[0-9.,%A-F-]+/i.test(val);
             if (hasCrop) {
                 cropBtn.className = 'btn btn-success smartcrop-crop-btn';
-                cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span> <span>✓ 4:3</span>';
+                cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span>';
                 cropBtn.title = 'Κάδρο 4:3 ενεργό (κάντε κλικ για επεξεργασία)';
+                cropBtn.setAttribute('aria-label', 'Κάδρο 4:3 ενεργό');
             } else {
                 cropBtn.className = 'btn btn-outline-primary smartcrop-crop-btn';
-                cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span> <span>Κάδρο</span>';
-                cropBtn.title = 'Ορισμός κάδρου 4:3';
+                cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span>';
+                cropBtn.title = 'Ορισμός κάδρου (4:3)';
+                cropBtn.setAttribute('aria-label', 'Ορισμός κάδρου (4:3)');
             }
         };
 
