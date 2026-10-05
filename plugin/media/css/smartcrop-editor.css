@@ -24,6 +24,68 @@
     border-color: #146c43;
 }
 
+/* Media Field Image Preview Framing */
+joomla-field-media .field-media-preview .preview_img,
+.field-media-preview .preview_img {
+    height: 100%;
+    max-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+joomla-field-media .smartcrop-preview-frame,
+.smartcrop-preview-frame {
+    position: relative !important;
+    overflow: hidden !important;
+    height: 160px !important;
+    max-height: 100% !important;
+    max-width: 100% !important;
+    border-radius: 4px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    display: block !important;
+    cursor: pointer;
+    background-color: transparent;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+joomla-field-media .smartcrop-preview-frame:hover,
+.smartcrop-preview-frame:hover {
+    transform: scale(1.02);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.28);
+}
+
+joomla-field-media .smartcrop-preview-frame img,
+.smartcrop-preview-frame img {
+    position: absolute !important;
+    max-width: none !important;
+    max-height: none !important;
+    display: block !important;
+    object-fit: fill !important;
+    pointer-events: none !important;
+}
+
+joomla-field-media .smartcrop-preview-badge,
+.smartcrop-preview-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 5;
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 3px 6px;
+    border-radius: 3px;
+    background: rgba(25, 135, 84, 0.92);
+    color: #ffffff;
+    pointer-events: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    backdrop-filter: blur(2px);
+}
+
 /* Hide legacy dashed trigger widget below field */
 .smartcrop-field-widget {
     display: none !important;

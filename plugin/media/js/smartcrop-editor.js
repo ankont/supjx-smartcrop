@@ -764,6 +764,10 @@ class SmartCropModalController {
                 }));
             }
 
+            // Immediately apply visual crop framing to image preview
+            const activeCropBtn = this.currentCropBtn || targetInput?.closest('.input-group')?.querySelector('.smartcrop-crop-btn');
+            SmartCropManager.updateFieldPreview(mediaWrapper, targetInput, activeCropBtn);
+
             console.log('[SmartCrop] Crop applied successfully to field:', targetInput.name || targetInput.id, updatedUri);
         }
 
@@ -826,6 +830,12 @@ class SmartCropModalController {
             cropBtn.title = `Ορισμός κάδρου (${this.ratioW}:${this.ratioH})`;
             cropBtn.setAttribute('aria-label', `Ορισμός κάδρου (${this.ratioW}:${this.ratioH})`);
         }
+
+        const mediaWrapper = targetInput?.closest('joomla-field-media') || this.currentMediaWrapper;
+        if (mediaWrapper && typeof mediaWrapper.updatePreview === 'function') {
+            try { mediaWrapper.updatePreview(); } catch (e) {}
+        }
+        SmartCropManager.updateFieldPreview(mediaWrapper, targetInput, cropBtn);
 
         this.storedProfile = null;
         this.closeModal();
@@ -908,53 +918,7 @@ class SmartCropModalController {
     }
 
     extractCropFromValue(val) {
-        if (!val) return null;
-        let s = String(val).trim();
-
-        if (s.includes('#')) {
-            const parts = s.split('#');
-            if (parts[1]) {
-                s = parts[1];
-            }
-        }
-
-        const qIdx = s.indexOf('?');
-        if (qIdx === -1) return null;
-
-        const query = s.substring(qIdx + 1);
-        const queryParams = {};
-        query.split('&').forEach((pair) => {
-            if (!pair) return;
-            const [k, v] = pair.split('=');
-            const dk = decodeURIComponent(k);
-            if (dk) {
-                queryParams[dk] = v ? decodeURIComponent(v) : '';
-            }
-        });
-
-        const cropStr = queryParams['crop'];
-        if (!cropStr) return null;
-
-        const coords = cropStr.split(',').map(Number);
-        if (coords.length !== 4 || coords.some(isNaN)) return null;
-
-        const zoom = parseFloat(queryParams['zoom']) || 1.0;
-        const ratioStr = queryParams['ratio'] || '4:3';
-        const [rw, rh] = ratioStr.split(':').map(Number);
-
-        return {
-            crop: {
-                x: coords[0],
-                y: coords[1],
-                width: coords[2],
-                height: coords[3]
-            },
-            zoom: zoom,
-            ratio: {
-                width: rw || 4,
-                height: rh || 3
-            }
-        };
+        return SmartCropManager.extractCropFromValue(val);
     }
 
     openMediaPicker() {
@@ -1078,20 +1042,179 @@ class SmartCropModalController {
 }
 
 /**
- * Universal Manager: Attaches [ ✂️ Κάδρο ] into .input-group for any <joomla-field-media>
+ * Universal Manager: Attaches [ ✂️ ] into .input-group and frames media previews for any <joomla-field-media>
  */
 class SmartCropManager {
+    static extractCropFromValue(val) {
+        if (!val) return null;
+        let s = String(val).trim();
+
+        if (s.includes('#')) {
+            const parts = s.split('#');
+            if (parts[1]) {
+                s = parts[1];
+            }
+        }
+
+        const qIdx = s.indexOf('?');
+        if (qIdx === -1) return null;
+
+        const query = s.substring(qIdx + 1);
+        const queryParams = {};
+        query.split('&').forEach((pair) => {
+            if (!pair) return;
+            const [k, v] = pair.split('=');
+            const dk = decodeURIComponent(k);
+            if (dk) {
+                queryParams[dk] = v ? decodeURIComponent(v) : '';
+            }
+        });
+
+        const cropStr = queryParams['crop'];
+        if (!cropStr) return null;
+
+        const coords = cropStr.split(',').map(Number);
+        if (coords.length !== 4 || coords.some(isNaN)) return null;
+
+        const zoom = parseFloat(queryParams['zoom']) || 1.0;
+        const ratioStr = queryParams['ratio'] || '4:3';
+        const [rw, rh] = ratioStr.split(':').map(Number);
+
+        return {
+            crop: {
+                x: coords[0],
+                y: coords[1],
+                width: coords[2],
+                height: coords[3]
+            },
+            zoom: zoom,
+            ratio: {
+                width: rw || 4,
+                height: rh || 3
+            }
+        };
+    }
+
+    static updateFieldPreview(mediaWrapper, input, cropBtn) {
+        if (!mediaWrapper && !input) return;
+
+        const wrapper = mediaWrapper || input?.closest('joomla-field-media, .field-media-wrapper, .control-group, .form-group');
+        const previewContainer = wrapper?.querySelector('.field-media-preview')
+            || wrapper?.closest?.('.control-group, .form-group')?.querySelector('.field-media-preview')
+            || input?.closest?.('.control-group, .form-group')?.querySelector('.field-media-preview');
+
+        if (!previewContainer) return;
+
+        const img = previewContainer.querySelector('img');
+        if (!img) return;
+
+        const val = input ? input.value.trim() : '';
+        const parsed = SmartCropManager.extractCropFromValue(val);
+
+        let frame = img.closest('.smartcrop-preview-frame');
+
+        if (parsed && parsed.crop) {
+            const { crop, ratio } = parsed;
+            const rw = ratio?.width || 4;
+            const rh = ratio?.height || 3;
+
+            // If not yet wrapped in smartcrop-preview-frame, wrap it
+            if (!frame) {
+                frame = document.createElement('div');
+                frame.className = 'smartcrop-preview-frame';
+                img.parentNode.insertBefore(frame, img);
+                frame.appendChild(img);
+            }
+
+            frame.style.aspectRatio = `${rw} / ${rh}`;
+            frame.title = `Κάδρο ${rw}:${rh} ενεργό (κάντε κλικ για επεξεργασία)`;
+            frame.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const btn = cropBtn || wrapper?.querySelector('.smartcrop-crop-btn') || input?.closest('.input-group')?.querySelector('.smartcrop-crop-btn');
+                if (btn) {
+                    btn.click();
+                }
+            };
+
+            let badge = frame.querySelector('.smartcrop-preview-badge');
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'smartcrop-preview-badge';
+                frame.appendChild(badge);
+            }
+            badge.innerHTML = `<span class="icon-scissors" aria-hidden="true"></span> <span>${rw}:${rh}</span>`;
+
+            // Calculate percentage styles
+            const normX = Math.max(0, Math.min(1, crop.x));
+            const normY = Math.max(0, Math.min(1, crop.y));
+            const normW = Math.max(0.0001, Math.min(1 - normX, crop.width));
+            const normH = Math.max(0.0001, Math.min(1 - normY, crop.height));
+
+            const scaleX = 1.0 / normW;
+            const scaleY = 1.0 / normH;
+
+            const widthPct  = (scaleX * 100.0).toFixed(4);
+            const heightPct = (scaleY * 100.0).toFixed(4);
+            const leftPct   = (-(normX / normW) * 100.0).toFixed(4);
+            const topPct    = (-(normY / normH) * 100.0).toFixed(4);
+
+            img.style.setProperty('position', 'absolute', 'important');
+            img.style.setProperty('left', `${leftPct}%`, 'important');
+            img.style.setProperty('top', `${topPct}%`, 'important');
+            img.style.setProperty('width', `${widthPct}%`, 'important');
+            img.style.setProperty('height', `${heightPct}%`, 'important');
+            img.style.setProperty('max-width', 'none', 'important');
+            img.style.setProperty('max-height', 'none', 'important');
+            img.style.setProperty('display', 'block', 'important');
+            img.style.setProperty('object-fit', 'fill', 'important');
+            img.style.setProperty('pointer-events', 'none', 'important');
+
+            if (!img.complete) {
+                img.addEventListener('load', () => {
+                    SmartCropManager.updateFieldPreview(mediaWrapper, input, cropBtn);
+                }, { once: true });
+            }
+        } else {
+            // No crop: if wrapped, unwrap and restore original state
+            if (frame && frame.parentElement) {
+                const badge = frame.querySelector('.smartcrop-preview-badge');
+                if (badge) badge.remove();
+
+                img.style.removeProperty('position');
+                img.style.removeProperty('left');
+                img.style.removeProperty('top');
+                img.style.removeProperty('width');
+                img.style.removeProperty('height');
+                img.style.removeProperty('max-width');
+                img.style.removeProperty('max-height');
+                img.style.removeProperty('display');
+                img.style.removeProperty('object-fit');
+                img.style.removeProperty('pointer-events');
+
+                frame.replaceWith(img);
+            }
+        }
+    }
+
     static initField(mediaEl) {
-        if (!mediaEl || mediaEl._smartcropInitialized) return;
+        if (!mediaEl) return;
 
         const input = (mediaEl.tagName === 'INPUT' ? mediaEl : null)
                    || mediaEl.querySelector('.field-media-input, input[type="text"]');
         const inputGroup = input?.closest('.input-group') || mediaEl.querySelector('.input-group') || mediaEl;
         if (!input || !inputGroup) return;
 
+        const mediaWrapper = mediaEl.tagName === 'JOOMLA-FIELD-MEDIA' ? mediaEl : mediaEl.closest('joomla-field-media') || mediaEl;
+        const cropBtnExisting = inputGroup.querySelector('.smartcrop-crop-btn');
+
+        if (mediaEl._smartcropInitialized) {
+            SmartCropManager.updateFieldPreview(mediaWrapper, input, cropBtnExisting);
+            return;
+        }
+
         mediaEl._smartcropInitialized = true;
 
-        const mediaWrapper = mediaEl.tagName === 'JOOMLA-FIELD-MEDIA' ? mediaEl : mediaEl.closest('joomla-field-media');
         if (mediaWrapper && !mediaWrapper._smartcropPatched) {
             mediaWrapper._smartcropPatched = true;
             const origValidate = mediaWrapper.validateValue;
@@ -1111,7 +1234,7 @@ class SmartCropManager {
             };
         }
 
-        let cropBtn = inputGroup.querySelector('.smartcrop-crop-btn');
+        let cropBtn = cropBtnExisting;
         if (!cropBtn) {
             cropBtn = document.createElement('button');
             cropBtn.type = 'button';
@@ -1123,6 +1246,17 @@ class SmartCropManager {
 
             input.insertAdjacentElement('afterend', cropBtn);
             console.log('[SmartCrop] Attached crop button to media field:', input.name || input.id || input);
+        }
+
+        if (mediaWrapper && !mediaWrapper._smartcropPreviewPatched) {
+            mediaWrapper._smartcropPreviewPatched = true;
+            const origUpdatePreview = mediaWrapper.updatePreview;
+            mediaWrapper.updatePreview = function() {
+                if (origUpdatePreview) {
+                    origUpdatePreview.call(this);
+                }
+                SmartCropManager.updateFieldPreview(mediaWrapper, input, cropBtn);
+            };
         }
 
         let profile = 'intro';
@@ -1151,15 +1285,20 @@ class SmartCropManager {
             }
         };
 
-        updateBtnState();
+        const onValueUpdate = () => {
+            updateBtnState();
+            SmartCropManager.updateFieldPreview(mediaWrapper, input, cropBtn);
+        };
 
-        input.addEventListener('change', updateBtnState);
-        input.addEventListener('input', updateBtnState);
+        onValueUpdate();
+
+        input.addEventListener('change', onValueUpdate);
+        input.addEventListener('input', onValueUpdate);
 
         const clearBtn = inputGroup.querySelector('.button-clear, button[data-action="clear"]');
         if (clearBtn) {
             clearBtn.addEventListener('click', () => {
-                setTimeout(updateBtnState, 60);
+                setTimeout(onValueUpdate, 60);
             });
         }
 
