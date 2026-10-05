@@ -17,7 +17,7 @@ use SuperSoftJx\Plugin\Content\SmartCrop\Tests\Integration\FormAndStorageTest;
 
 echo "============================================================\n";
 echo "SuperSoftJx SmartCrop (plg_content_smartcrop) - Test Suite\n";
-echo "Target: Joomla 5.4.x / 6.x | Version: 1.0.0-beta2\n";
+echo "Target: Joomla 5.4.x / 6.x | Version: 1.0.0\n";
 echo "============================================================\n\n";
 
 $suites = [

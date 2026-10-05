@@ -322,11 +322,18 @@ php tests/run_tests.php
 ```cmd
 build.bat
 ```
-Το αρχείο παράγεται στο: `build/output/plg_content_smartcrop-v1.0.0-beta2.zip`.
+Το αρχείο παράγεται στο: `build/output/plg_content_smartcrop-v1.0.0.zip`.
 
 ---
 
 ## 16. Ιστορικό Εκδόσεων (Changelog)
+
+### v1.0.0 (2026-10-05)
+- **Επίσημη Έκδοση 1.0.0 (Stable / General Availability)**:
+  - **Απόλυτη Οπτική Ταύτιση (Pixel-Perfect Frontend Rendering)**: Υπολογισμός ακριβών ποσοστιαίων συντεταγμένων του crop viewport (`left`, `top`, `width`, `height`, `object-fit: fill !important; transform: none !important;`) στο `SmartCropHelper::getCssStyle()`, εξασφαλίζοντας 100% ταύτιση της κάρτας στο frontend με το preview του editor ανεξάρτητα από διαστάσεις ή container rules.
+  - **Floating Overlay Κουμπί στο Image Preview**: Το κουμπί καδραρίσματος τοποθετείται διακριτικά πάνω στο thumbnail της προεπισκόπησης (αχνό με ένδειξη κατάστασης, πλήρως ορατό στο hover), αφαιρώντας το από το URL input group ώστε το πεδίο κειμένου να διατηρεί το μέγιστο πλάτος του.
+  - **Real-Time Framing & Badge στο Media Field Preview**: Άμεση απόδοση του ενεργού κάδρου και badge αναλογίας στο thumbnail του Joomla media field.
+  - **Σταθεροποίηση Reset & Αποθήκευσης**: Αξιόπιστη επαναφορά στην αρχική εικόνα (contain) κατά την αφαίρεση του κάδρου και αποτροπή MutationObserver loop κατά την αποθήκευση της φόρμας.
 
 ### v1.0.0-beta2 (2026-10-05)
 - **Διόρθωση Αποθήκευσης & Ενημέρωσης URL (Web Component Synchronization)**:
