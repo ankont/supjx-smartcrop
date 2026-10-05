@@ -8,12 +8,12 @@
     {
       "name": "plg_content_smartcrop.editor-style",
       "type": "style",
-      "uri": "plg_content_smartcrop/css/smartcrop-editor.css"
+      "uri": "plg_content_smartcrop/smartcrop-editor.css"
     },
     {
       "name": "plg_content_smartcrop.editor",
       "type": "script",
-      "uri": "plg_content_smartcrop/js/smartcrop-editor.js",
+      "uri": "plg_content_smartcrop/smartcrop-editor.js",
       "dependencies": [
         "core"
       ],

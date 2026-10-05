@@ -34,6 +34,7 @@ final class SmartCrop extends CMSPlugin implements SubscriberInterface
         return [
             'onContentPrepare'     => 'onContentPrepare',
             'onContentPrepareForm' => 'onContentPrepareForm',
+            'onBeforeCompileHead'  => 'onBeforeCompileHead',
         ];
     }
 
@@ -125,6 +126,34 @@ final class SmartCrop extends CMSPlugin implements SubscriberInterface
      * @return  void
      */
     public function onContentPrepareForm(mixed $event): void
+    {
+        $this->registerAssets();
+    }
+
+    /**
+     * Intercepts head compilation to ensure SmartCrop assets are loaded in admin / edit views.
+     *
+     * @param   mixed  $event  BeforeCompileHeadEvent
+     *
+     * @return  void
+     */
+    public function onBeforeCompileHead(mixed $event = null): void
+    {
+        try {
+            $app = Factory::getApplication();
+            if ($app->isClient('administrator')) {
+                $this->registerAssets();
+            }
+        } catch (Throwable) {
+        }
+    }
+
+    /**
+     * Registers Web Asset Manager (CSS & JS) and loads language files.
+     *
+     * @return  void
+     */
+    public function registerAssets(): void
     {
         try {
             $this->loadLanguage();

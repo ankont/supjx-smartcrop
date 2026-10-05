@@ -13,6 +13,8 @@
  * - Backward compatible with existing article JSON metadata storage
  */
 
+console.log('[SmartCrop] Editor script loaded');
+
 class SmartCropModalController {
     constructor(modalElement) {
         this.modalEl = modalElement;
@@ -730,7 +732,7 @@ class SmartCropModalController {
         const cropBtn = this.currentCropBtn || targetInput?.closest('.input-group')?.querySelector('.smartcrop-crop-btn');
         if (cropBtn) {
             cropBtn.className = 'btn btn-success smartcrop-crop-btn';
-            cropBtn.innerHTML = `<span class="icon-crop" aria-hidden="true"></span> <span>✓ ${this.ratioW}:${this.ratioH}</span>`;
+            cropBtn.innerHTML = `<span class="icon-scissors" aria-hidden="true"></span> <span>✓ ${this.ratioW}:${this.ratioH}</span>`;
             cropBtn.title = `Κάδρο ${this.ratioW}:${this.ratioH} ενεργό (κάντε κλικ για επεξεργασία)`;
         }
 
@@ -752,7 +754,7 @@ class SmartCropModalController {
         const cropBtn = this.currentCropBtn || targetInput?.closest('.input-group')?.querySelector('.smartcrop-crop-btn');
         if (cropBtn) {
             cropBtn.className = 'btn btn-outline-primary smartcrop-crop-btn';
-            cropBtn.innerHTML = '<span class="icon-crop" aria-hidden="true"></span> <span>Κάδρο</span>';
+            cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span> <span>Κάδρο</span>';
             cropBtn.title = `Ορισμός κάδρου ${this.ratioW}:${this.ratioH}`;
         }
 
@@ -1001,6 +1003,7 @@ class SmartCropManager {
             cropBtn.title = 'Ορισμός κάδρου 4:3';
 
             input.insertAdjacentElement('afterend', cropBtn);
+            console.log('[SmartCrop] Attached crop button to media field:', input.name || input.id || input);
         }
 
         let profile = 'intro';
@@ -1081,7 +1084,7 @@ class SmartCropManager {
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">
-                            <span class="icon-crop" aria-hidden="true"></span>
+                            <span class="icon-scissors" aria-hidden="true"></span>
                             <span>SmartCrop — Κάδρο Εικόνας (4:3)</span>
                         </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" data-smartcrop-cancel aria-label="Κλείσιμο"></button>
@@ -1135,7 +1138,7 @@ class SmartCropManager {
                                 <button type="button" class="btn btn-sm btn-outline-secondary smartcrop-btn-preset" data-smartcrop-zoom-preset="2.0">200%</button>
                             </div>
                             <div class="smartcrop-live-coords-bar" data-smartcrop-live-coords-bar>
-                                <span class="icon-crop" aria-hidden="true"></span>
+                                <span class="icon-scissors" aria-hidden="true"></span>
                                 <span data-smartcrop-live-coords>-</span>
                             </div>
                             <button type="button" class="btn btn-sm btn-outline-danger smartcrop-btn-reset ms-auto" data-smartcrop-reset title="Επαναφορά"><span class="icon-loop" aria-hidden="true"></span> <span>Επαναφορά</span></button>
@@ -1154,7 +1157,11 @@ class SmartCropManager {
     }
 
     static initAll() {
-        document.querySelectorAll('joomla-field-media, .field-media-wrapper, input.field-media-input').forEach((el) => {
+        const els = document.querySelectorAll('joomla-field-media, .field-media-wrapper, input.field-media-input');
+        if (els.length > 0) {
+            console.log(`[SmartCrop] Scanning DOM: found ${els.length} potential media field elements`);
+        }
+        els.forEach((el) => {
             const target = el.tagName === 'INPUT' ? (el.closest('joomla-field-media, .field-media-wrapper') || el.closest('.input-group') || el) : el;
             SmartCropManager.initField(target);
         });
