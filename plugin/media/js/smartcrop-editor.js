@@ -1,6 +1,6 @@
 /**
  * SuperSoftJx SmartCrop - Editor Controller
- * Version 1.0.0-beta1
+ * Version 1.0.0-beta2
  *
  * Implements universal, non-destructive image framing inside a flexible modal overlay:
  * - Universal integration into native Joomla <joomla-field-media> (.input-group adjacent button)

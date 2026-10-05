@@ -322,11 +322,22 @@ php tests/run_tests.php
 ```cmd
 build.bat
 ```
-Το αρχείο παράγεται στο: `build/output/plg_content_smartcrop-v0.2.4.zip`.
+Το αρχείο παράγεται στο: `build/output/plg_content_smartcrop-v1.0.0-beta2.zip`.
 
 ---
 
 ## 16. Ιστορικό Εκδόσεων (Changelog)
+
+### v1.0.0-beta2 (2026-10-05)
+- **Διόρθωση Αποθήκευσης & Ενημέρωσης URL (Web Component Synchronization)**:
+  - Επίλυση του προβλήματος επαναφοράς του URL όπου το εγγενές web component `<joomla-field-media>` του Joomla κατά το `change` event εκτελούσε validation reset, διαγράφοντας τις παραμέτρους `?crop=...&ratio=...`.
+  - Συγχρονισμός του `mediaWrapper.validatedUrl` και προστασία του `validateValue` ώστε το Joomla core να αποδέχεται και να διατηρεί άμεσα το enriched `#joomlaImage://` URI κατά την αποθήκευση του άρθρου.
+  - Αποτροπή percent-encoding στις παραμέτρους query (`crop=x,y,w,h`) για καθαρή και αναγνώσιμη απεικόνιση στο πεδίο κειμένου.
+- **Βελτιστοποίηση UI Πεδίου (Icon-Only Crop Button)**:
+  - Μετατροπή του κουμπιού κάδρου σε συμπαγές icon-only κουμπί (`[ ✂️ ]`) μέσα στο `.input-group` ώστε να μην συμπιέζεται το διαθέσιμο πλάτος του textbox.
+  - Προσθήκη δυναμικών accessibility attributes (`aria-label`) και επεξηγηματικών tooltips (`title`) ανάλογα με την κατάσταση (ανενεργό / ενεργό με πράσινη επισήμανση).
+- **Πλήρης Υποστήριξη Συμβάντων Joomla 5/6 (`ContentPrepareEvent`)**:
+  - Υποστήριξη τόσο του σύγχρονου `Joomla\CMS\Event\Content\ContentPrepareEvent` όσο και του legacy string context στο `onContentPrepare`.
 
 ### v1.0.0-beta1 (2026-10-05)
 - **Universal Ενσωμάτωση στο UI (`.input-group`)**:
