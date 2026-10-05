@@ -765,19 +765,9 @@ class SmartCropModalController {
             }
 
             // Immediately apply visual crop framing to image preview
-            const activeCropBtn = this.currentCropBtn || targetInput?.closest('.input-group')?.querySelector('.smartcrop-crop-btn');
-            SmartCropManager.updateFieldPreview(mediaWrapper, targetInput, activeCropBtn);
+            SmartCropManager.updateFieldPreview(mediaWrapper, targetInput);
 
             console.log('[SmartCrop] Crop applied successfully to field:', targetInput.name || targetInput.id, updatedUri);
-        }
-
-        // 2. Update crop button state
-        const cropBtn = this.currentCropBtn || targetInput?.closest('.input-group')?.querySelector('.smartcrop-crop-btn');
-        if (cropBtn) {
-            cropBtn.className = 'btn btn-success smartcrop-crop-btn';
-            cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span>';
-            cropBtn.title = `Κάδρο ${this.ratioW}:${this.ratioH} ενεργό (κάντε κλικ για επεξεργασία)`;
-            cropBtn.setAttribute('aria-label', `Κάδρο ${this.ratioW}:${this.ratioH} ενεργό`);
         }
 
         this.closeModal();
@@ -823,19 +813,11 @@ class SmartCropModalController {
             console.log('[SmartCrop] Crop cleared from field:', targetInput.name || targetInput.id, clearedUri);
         }
 
-        const cropBtn = this.currentCropBtn || targetInput?.closest('.input-group')?.querySelector('.smartcrop-crop-btn');
-        if (cropBtn) {
-            cropBtn.className = 'btn btn-outline-primary smartcrop-crop-btn';
-            cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span>';
-            cropBtn.title = `Ορισμός κάδρου (${this.ratioW}:${this.ratioH})`;
-            cropBtn.setAttribute('aria-label', `Ορισμός κάδρου (${this.ratioW}:${this.ratioH})`);
-        }
-
         const mediaWrapper = targetInput?.closest('joomla-field-media') || this.currentMediaWrapper;
         if (mediaWrapper && typeof mediaWrapper.updatePreview === 'function') {
             try { mediaWrapper.updatePreview(); } catch (e) {}
         }
-        SmartCropManager.updateFieldPreview(mediaWrapper, targetInput, cropBtn);
+        SmartCropManager.updateFieldPreview(mediaWrapper, targetInput);
 
         this.storedProfile = null;
         this.closeModal();
@@ -1095,6 +1077,64 @@ class SmartCropManager {
         };
     }
 
+    static getContainerDimensions(container) {
+        if (!container) {
+            return { height: 160, width: 336 };
+        }
+
+        let availH = 0;
+        let availW = 0;
+
+        // 1. Try actual clientHeight / clientWidth of the preview container
+        if (container.clientHeight > 0) {
+            const cs = window.getComputedStyle(container);
+            const pt = parseFloat(cs.paddingTop) || 0;
+            const pb = parseFloat(cs.paddingBottom) || 0;
+            const pl = parseFloat(cs.paddingLeft) || 0;
+            const pr = parseFloat(cs.paddingRight) || 0;
+            availH = container.clientHeight - pt - pb;
+            availW = container.clientWidth - pl - pr;
+        }
+
+        // 2. Try joomla-field-media preview-height / preview-width attributes if present
+        if (availH <= 30) {
+            const jfm = container.closest('joomla-field-media');
+            const attrH = parseInt(jfm?.getAttribute('preview-height'), 10);
+            const attrW = parseInt(jfm?.getAttribute('preview-width'), 10);
+            if (attrH && attrH > 30) availH = attrH;
+            if (attrW && attrW > 30) availW = attrW;
+        }
+
+        // 3. Try computed style height / width
+        if (availH <= 30) {
+            const cs = window.getComputedStyle(container);
+            const h = parseFloat(cs.height) || 0;
+            const pt = parseFloat(cs.paddingTop) || 0;
+            const pb = parseFloat(cs.paddingBottom) || 0;
+            if (h > 30) {
+                availH = (cs.boxSizing === 'border-box') ? (h - pt - pb) : h;
+            }
+        }
+        if (availW <= 30) {
+            const cs = window.getComputedStyle(container);
+            const w = parseFloat(cs.width) || 0;
+            const pl = parseFloat(cs.paddingLeft) || 0;
+            const pr = parseFloat(cs.paddingRight) || 0;
+            if (w > 30) {
+                availW = (cs.boxSizing === 'border-box') ? (w - pl - pr) : w;
+            }
+        }
+
+        // 4. Fallback if container is hidden in inactive tab or not yet styled
+        if (availH <= 30) availH = 160;
+        if (availW <= 30) availW = 336;
+
+        return {
+            height: Math.max(40, Math.round(availH)),
+            width: Math.max(40, Math.round(availW))
+        };
+    }
+
     static updateFieldPreview(mediaWrapper, input, cropBtn) {
         if (!mediaWrapper && !input) return;
 
@@ -1106,44 +1146,150 @@ class SmartCropManager {
         if (!previewContainer) return;
 
         const img = previewContainer.querySelector('img');
-        if (!img) return;
+        const previewEmpty = previewContainer.querySelector('.preview_empty');
+        const previewImg = previewContainer.querySelector('.preview_img');
 
         const val = input ? input.value.trim() : '';
-        const parsed = SmartCropManager.extractCropFromValue(val);
 
-        let frame = img.closest('.smartcrop-preview-frame');
+        // 1. If no value or image is empty
+        if (!val) {
+            if (previewEmpty) {
+                previewEmpty.style.setProperty('display', 'block', 'important');
+            }
+            if (previewImg) {
+                previewImg.style.setProperty('display', 'none', 'important');
+            }
+            if (img) {
+                img.style.setProperty('display', 'none', 'important');
+            }
+            const frame = previewContainer.querySelector('.smartcrop-preview-frame');
+            if (frame && img && frame.contains(img)) {
+                const badge = frame.querySelector('.smartcrop-preview-badge');
+                if (badge) badge.remove();
+                frame.replaceWith(img);
+            } else if (frame) {
+                frame.remove();
+            }
+            return;
+        }
+
+        // 2. Value is present: hide empty label, show image container
+        if (previewEmpty) {
+            previewEmpty.style.setProperty('display', 'none', 'important');
+        }
+        if (previewImg) {
+            previewImg.style.setProperty('display', 'contents', 'important');
+        }
+        if (img) {
+            img.style.removeProperty('display');
+        }
+
+        if (!img) return;
+
+        // Remove any legacy crop button from input-group if present
+        const inputGroupBtn = wrapper?.querySelector('.smartcrop-crop-btn');
+        if (inputGroupBtn) {
+            inputGroupBtn.remove();
+        }
+
+        // Determine profile
+        let profile = 'intro';
+        const nameOrId = (input?.name || input?.id || '').toLowerCase();
+        if (nameOrId.includes('fulltext') || nameOrId.includes('full_image')) {
+            profile = 'fulltext';
+        } else if (nameOrId.includes('intro')) {
+            profile = 'intro';
+        } else {
+            profile = 'default';
+        }
+
+        // Ensure frame wraps img
+        let frame = img.closest('.smartcrop-preview-frame') || previewContainer.querySelector('.smartcrop-preview-frame');
+        if (!frame) {
+            frame = document.createElement('div');
+            frame.className = 'smartcrop-preview-frame';
+            img.parentNode.insertBefore(frame, img);
+            frame.appendChild(img);
+        }
+
+        // Clean up any legacy static badge
+        const legacyBadge = frame.querySelector('.smartcrop-preview-badge');
+        if (legacyBadge) {
+            legacyBadge.remove();
+        }
+
+        // Ensure preview overlay button exists inside frame
+        let previewBtn = frame.querySelector('.smartcrop-preview-btn');
+        if (!previewBtn) {
+            previewBtn = document.createElement('button');
+            previewBtn.type = 'button';
+            previewBtn.className = 'smartcrop-preview-btn';
+            previewBtn.setAttribute('data-smartcrop-preview-btn', '');
+            frame.appendChild(previewBtn);
+        }
+
+        // Frame itself is NOT a link
+        frame.onclick = null;
+
+        // Overlay button click opens modal
+        previewBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const modalEl = SmartCropManager.ensureModal(profile);
+            if (!modalEl._smartcropController) {
+                modalEl._smartcropController = new SmartCropModalController(modalEl);
+            }
+            modalEl._smartcropController.attachToMediaField(input, mediaWrapper, previewBtn, profile);
+            modalEl._smartcropController.openModal();
+        };
+
+        // Observe previewContainer resizing (tab switches, responsive changes, custom dimensions)
+        if (typeof ResizeObserver !== 'undefined' && !previewContainer._smartcropResizeObserver) {
+            let lastH = 0;
+            let lastW = 0;
+            const ro = new ResizeObserver(() => {
+                const dims = SmartCropManager.getContainerDimensions(previewContainer);
+                if (Math.abs(dims.height - lastH) > 2 || Math.abs(dims.width - lastW) > 2) {
+                    lastH = dims.height;
+                    lastW = dims.width;
+                    SmartCropManager.updateFieldPreview(wrapper, input);
+                }
+            });
+            ro.observe(previewContainer);
+            previewContainer._smartcropResizeObserver = ro;
+        }
+
+        const dims = SmartCropManager.getContainerDimensions(previewContainer);
+        const availH = dims.height;
+        const availW = dims.width;
+
+        const parsed = SmartCropManager.extractCropFromValue(val);
 
         if (parsed && parsed.crop) {
             const { crop, ratio } = parsed;
             const rw = ratio?.width || 4;
             const rh = ratio?.height || 3;
+            const cropAspect = rw / rh;
 
-            // If not yet wrapped in smartcrop-preview-frame, wrap it
-            if (!frame) {
-                frame = document.createElement('div');
-                frame.className = 'smartcrop-preview-frame';
-                img.parentNode.insertBefore(frame, img);
-                frame.appendChild(img);
+            let targetH = availH;
+            let targetW = Math.round(availH * cropAspect);
+            if (targetW > availW) {
+                targetW = availW;
+                targetH = Math.round(availW / cropAspect);
             }
 
+            frame.classList.add('is-cropped');
+            frame.style.setProperty('height', `${targetH}px`, 'important');
+            frame.style.setProperty('width', `${targetW}px`, 'important');
+            frame.style.setProperty('max-height', '100%', 'important');
+            frame.style.setProperty('max-width', '100%', 'important');
             frame.style.aspectRatio = `${rw} / ${rh}`;
-            frame.title = `Κάδρο ${rw}:${rh} ενεργό (κάντε κλικ για επεξεργασία)`;
-            frame.onclick = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const btn = cropBtn || wrapper?.querySelector('.smartcrop-crop-btn') || input?.closest('.input-group')?.querySelector('.smartcrop-crop-btn');
-                if (btn) {
-                    btn.click();
-                }
-            };
+            frame.title = '';
 
-            let badge = frame.querySelector('.smartcrop-preview-badge');
-            if (!badge) {
-                badge = document.createElement('span');
-                badge.className = 'smartcrop-preview-badge';
-                frame.appendChild(badge);
-            }
-            badge.innerHTML = `<span class="icon-scissors" aria-hidden="true"></span> <span>${rw}:${rh}</span>`;
+            previewBtn.className = 'smartcrop-preview-btn is-cropped';
+            previewBtn.title = `Επεξεργασία κάδρου (${rw}:${rh})`;
+            previewBtn.setAttribute('aria-label', `Επεξεργασία κάδρου (${rw}:${rh})`);
+            previewBtn.innerHTML = `<span class="icon-scissors" aria-hidden="true"></span> <span>${rw}:${rh}</span>`;
 
             // Calculate percentage styles
             const normX = Math.max(0, Math.min(1, crop.x));
@@ -1169,36 +1315,76 @@ class SmartCropManager {
             img.style.setProperty('display', 'block', 'important');
             img.style.setProperty('object-fit', 'fill', 'important');
             img.style.setProperty('pointer-events', 'none', 'important');
-
-            if (!img.complete) {
-                img.addEventListener('load', () => {
-                    SmartCropManager.updateFieldPreview(mediaWrapper, input, cropBtn);
-                }, { once: true });
-            }
         } else {
-            // No crop: if wrapped, unwrap and restore original state
-            if (frame && frame.parentElement) {
-                const badge = frame.querySelector('.smartcrop-preview-badge');
-                if (badge) badge.remove();
+            // Un-cropped state: natural image display, button visible on hover only
+            frame.classList.remove('is-cropped');
+            frame.style.removeProperty('aspect-ratio');
+            frame.title = '';
 
-                img.style.removeProperty('position');
-                img.style.removeProperty('left');
-                img.style.removeProperty('top');
-                img.style.removeProperty('width');
-                img.style.removeProperty('height');
-                img.style.removeProperty('max-width');
-                img.style.removeProperty('max-height');
-                img.style.removeProperty('display');
-                img.style.removeProperty('object-fit');
-                img.style.removeProperty('pointer-events');
+            previewBtn.className = 'smartcrop-preview-btn';
+            previewBtn.title = 'Ορισμός κάδρου (4:3)';
+            previewBtn.setAttribute('aria-label', 'Ορισμός κάδρου (4:3)');
+            previewBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span> <span>4:3</span>';
 
-                frame.replaceWith(img);
+            // Clean up crop positioning styles
+            img.style.removeProperty('position');
+            img.style.removeProperty('left');
+            img.style.removeProperty('top');
+            img.style.removeProperty('pointer-events');
+            img.style.removeProperty('transform');
+            img.style.removeProperty('aspect-ratio');
+
+            const nw = img.naturalWidth;
+            const nh = img.naturalHeight;
+
+            if (nw > 0 && nh > 0) {
+                const natAspect = nw / nh;
+                let targetH = availH;
+                let targetW = Math.round(availH * natAspect);
+                if (targetW > availW) {
+                    targetW = availW;
+                    targetH = Math.round(availW / natAspect);
+                }
+
+                frame.style.setProperty('height', `${targetH}px`, 'important');
+                frame.style.setProperty('width', `${targetW}px`, 'important');
+                frame.style.setProperty('max-height', '100%', 'important');
+                frame.style.setProperty('max-width', '100%', 'important');
+
+                img.style.setProperty('display', 'block', 'important');
+                img.style.setProperty('width', '100%', 'important');
+                img.style.setProperty('height', '100%', 'important');
+                img.style.setProperty('max-width', '100%', 'important');
+                img.style.setProperty('max-height', '100%', 'important');
+                img.style.setProperty('object-fit', 'contain', 'important');
+                img.style.setProperty('margin', 'auto', 'important');
+                img.style.setProperty('align-self', 'center', 'important');
+            } else {
+                frame.style.setProperty('height', `${availH}px`, 'important');
+                frame.style.setProperty('width', 'auto', 'important');
+                frame.style.setProperty('max-height', '100%', 'important');
+                frame.style.setProperty('max-width', '100%', 'important');
+
+                img.style.setProperty('display', 'block', 'important');
+                img.style.setProperty('height', '100%', 'important');
+                img.style.setProperty('width', 'auto', 'important');
+                img.style.setProperty('max-width', '100%', 'important');
+                img.style.setProperty('max-height', '100%', 'important');
+                img.style.setProperty('object-fit', 'contain', 'important');
+                img.style.setProperty('margin', 'auto', 'important');
+                img.style.setProperty('align-self', 'center', 'important');
             }
+        }
+
+        if (!img.complete) {
+            img.addEventListener('load', () => {
+                SmartCropManager.updateFieldPreview(mediaWrapper, input);
+            }, { once: true });
         }
     }
 
     static initField(mediaEl) {
-        if (!mediaEl) return;
+        if (!mediaEl || mediaEl._smartcropInitialized) return;
 
         const input = (mediaEl.tagName === 'INPUT' ? mediaEl : null)
                    || mediaEl.querySelector('.field-media-input, input[type="text"]');
@@ -1206,11 +1392,11 @@ class SmartCropManager {
         if (!input || !inputGroup) return;
 
         const mediaWrapper = mediaEl.tagName === 'JOOMLA-FIELD-MEDIA' ? mediaEl : mediaEl.closest('joomla-field-media') || mediaEl;
-        const cropBtnExisting = inputGroup.querySelector('.smartcrop-crop-btn');
 
-        if (mediaEl._smartcropInitialized) {
-            SmartCropManager.updateFieldPreview(mediaWrapper, input, cropBtnExisting);
-            return;
+        // Remove any legacy crop button inside input-group so textbox gets full width
+        const cropBtnExisting = inputGroup.querySelector('.smartcrop-crop-btn');
+        if (cropBtnExisting) {
+            cropBtnExisting.remove();
         }
 
         mediaEl._smartcropInitialized = true;
@@ -1234,20 +1420,6 @@ class SmartCropManager {
             };
         }
 
-        let cropBtn = cropBtnExisting;
-        if (!cropBtn) {
-            cropBtn = document.createElement('button');
-            cropBtn.type = 'button';
-            cropBtn.className = 'btn btn-outline-primary smartcrop-crop-btn';
-            cropBtn.setAttribute('data-smartcrop-crop-btn', '');
-            cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span>';
-            cropBtn.title = 'Ορισμός κάδρου (4:3)';
-            cropBtn.setAttribute('aria-label', 'Ορισμός κάδρου (4:3)');
-
-            input.insertAdjacentElement('afterend', cropBtn);
-            console.log('[SmartCrop] Attached crop button to media field:', input.name || input.id || input);
-        }
-
         if (mediaWrapper && !mediaWrapper._smartcropPreviewPatched) {
             mediaWrapper._smartcropPreviewPatched = true;
             const origUpdatePreview = mediaWrapper.updatePreview;
@@ -1255,39 +1427,12 @@ class SmartCropManager {
                 if (origUpdatePreview) {
                     origUpdatePreview.call(this);
                 }
-                SmartCropManager.updateFieldPreview(mediaWrapper, input, cropBtn);
+                SmartCropManager.updateFieldPreview(mediaWrapper, input);
             };
         }
 
-        let profile = 'intro';
-        const nameOrId = (input.name || input.id || '').toLowerCase();
-        if (nameOrId.includes('fulltext') || nameOrId.includes('full_image')) {
-            profile = 'fulltext';
-        } else if (nameOrId.includes('intro')) {
-            profile = 'intro';
-        } else {
-            profile = 'default';
-        }
-
-        const updateBtnState = () => {
-            const val = input.value.trim();
-            const hasCrop = /[?&]crop=[0-9.,%A-F-]+/i.test(val);
-            if (hasCrop) {
-                cropBtn.className = 'btn btn-success smartcrop-crop-btn';
-                cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span>';
-                cropBtn.title = 'Κάδρο 4:3 ενεργό (κάντε κλικ για επεξεργασία)';
-                cropBtn.setAttribute('aria-label', 'Κάδρο 4:3 ενεργό');
-            } else {
-                cropBtn.className = 'btn btn-outline-primary smartcrop-crop-btn';
-                cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span>';
-                cropBtn.title = 'Ορισμός κάδρου (4:3)';
-                cropBtn.setAttribute('aria-label', 'Ορισμός κάδρου (4:3)');
-            }
-        };
-
         const onValueUpdate = () => {
-            updateBtnState();
-            SmartCropManager.updateFieldPreview(mediaWrapper, input, cropBtn);
+            SmartCropManager.updateFieldPreview(mediaWrapper, input);
         };
 
         onValueUpdate();
@@ -1301,18 +1446,6 @@ class SmartCropManager {
                 setTimeout(onValueUpdate, 60);
             });
         }
-
-        cropBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            const modalEl = SmartCropManager.ensureModal(profile);
-            if (!modalEl._smartcropController) {
-                modalEl._smartcropController = new SmartCropModalController(modalEl);
-            }
-            modalEl._smartcropController.attachToMediaField(input, mediaEl, cropBtn, profile);
-            modalEl._smartcropController.openModal();
-        });
     }
 
     static ensureModal(profile) {
@@ -1491,7 +1624,7 @@ if (document.readyState === 'loading') {
 if (typeof document !== 'undefined') {
     document.addEventListener('shown.bs.tab', () => setTimeout(initSmartCrop, 50));
     document.addEventListener('click', (e) => {
-        if (e.target && (e.target.closest('[data-bs-toggle="tab"], [data-toggle="tab"], .nav-link, button, a') || e.target.closest('joomla-tab'))) {
+        if (e.target && (e.target.closest('[data-bs-toggle="tab"], [data-toggle="tab"], [role="tab"], .nav-link') || e.target.closest('joomla-tab'))) {
             setTimeout(initSmartCrop, 60);
         }
     });
@@ -1500,14 +1633,35 @@ if (typeof document !== 'undefined') {
 // Observe dynamic DOM changes (e.g. AJAX-injected dialogs, tabs, SmartBrowser)
 if (typeof window !== 'undefined' && window.MutationObserver) {
     try {
+        let observerDebounce = null;
         const dynamicObserver = new MutationObserver((mutations) => {
+            let hasNewMediaField = false;
             for (const mutation of mutations) {
-                if (mutation.addedNodes.length > 0) {
-                    initSmartCrop();
-                    break;
+                for (const node of mutation.addedNodes) {
+                    if (node.nodeType !== 1) continue;
+                    // Ignore internal SmartCrop elements to prevent feedback loops
+                    if (node.classList?.contains('smartcrop-preview-frame') ||
+                        node.classList?.contains('smartcrop-preview-badge') ||
+                        node.classList?.contains('smartcrop-crop-btn') ||
+                        node.classList?.contains('smartcrop-modal') ||
+                        node.hasAttribute?.('data-smartcrop-modal')) {
+                        continue;
+                    }
+                    if (node.matches?.('joomla-field-media, .field-media-wrapper, input.field-media-input') ||
+                        node.querySelector?.('joomla-field-media, .field-media-wrapper, input.field-media-input')) {
+                        hasNewMediaField = true;
+                        break;
+                    }
                 }
+                if (hasNewMediaField) break;
+            }
+
+            if (hasNewMediaField) {
+                if (observerDebounce) clearTimeout(observerDebounce);
+                observerDebounce = setTimeout(initSmartCrop, 100);
             }
         });
+
         const startObserving = () => {
             if (document.body) {
                 dynamicObserver.observe(document.body, { childList: true, subtree: true });

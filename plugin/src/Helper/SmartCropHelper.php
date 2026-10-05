@@ -193,6 +193,7 @@ final class SmartCropHelper
         if (is_string($imageOrArticle)) {
             $parsed = self::parseCropFromUri($imageOrArticle);
             if ($parsed !== null) {
+                $crop   = $parsed['crop'];
                 $focalX = $parsed['focal_x'];
                 $focalY = $parsed['focal_y'];
                 $zoom   = $parsed['zoom'];
@@ -226,6 +227,7 @@ final class SmartCropHelper
             $targetUri = (string) ($imagesData['image_intro'] ?? $imagesData['image_fulltext'] ?? '');
             $parsed = self::parseCropFromUri($targetUri);
             if ($parsed !== null) {
+                $crop   = $parsed['crop'];
                 $focalX = $parsed['focal_x'];
                 $focalY = $parsed['focal_y'];
                 $zoom   = $parsed['zoom'];
@@ -243,25 +245,51 @@ final class SmartCropHelper
             }
         }
 
+        $cropX = (float) ($crop['x'] ?? 0.0);
+        $cropY = (float) ($crop['y'] ?? 0.0);
+        $cropW = max(0.0001, (float) ($crop['width'] ?? 1.0));
+        $cropH = max(0.0001, (float) ($crop['height'] ?? 1.0));
+
+        $normX = max(0.0, min(1.0, $cropX));
+        $normY = max(0.0, min(1.0, $cropY));
+        $normW = max(0.0001, min(1.0 - $normX, $cropW));
+        $normH = max(0.0001, min(1.0 - $normY, $cropH));
+
+        $scaleX = 1.0 / $normW;
+        $scaleY = 1.0 / $normH;
+        $widthPct  = round($scaleX * 100.0, 4);
+        $heightPct = round($scaleY * 100.0, 4);
+        $leftPct   = round(-($normX / $normW) * 100.0, 4);
+        $topPct    = round(-($normY / $normH) * 100.0, 4);
+        $leftPct   = abs($leftPct) < 0.0001 ? 0.0 : $leftPct;
+        $topPct    = abs($topPct) < 0.0001 ? 0.0 : $topPct;
+
         $focalX = max(0.0, min(100.0, $focalX));
         $focalY = max(0.0, min(100.0, $focalY));
         $zoom   = round(max(1.0, min(5.0, $zoom)), 3);
 
         $css = sprintf(
-            'object-position: %s%% %s%%; transform-origin: %s%% %s%%; transform: scale(%s);',
+            'position: absolute !important; left: %s%% !important; top: %s%% !important; width: %s%% !important; height: %s%% !important; right: auto !important; bottom: auto !important; max-width: none !important; max-height: none !important; object-fit: fill !important; transform: none !important; object-position: %s%% %s%%; transform-origin: %s%% %s%%;',
+            $leftPct,
+            $topPct,
+            $widthPct,
+            $heightPct,
             $focalX,
             $focalY,
             $focalX,
-            $focalY,
-            $zoom
+            $focalY
         );
 
         return [
-            'focal_x'  => $focalX,
-            'focal_y'  => $focalY,
-            'zoom'     => $zoom,
-            'ratio'    => $ratioStr,
-            'css'      => $css,
+            'focal_x'    => $focalX,
+            'focal_y'    => $focalY,
+            'zoom'       => $zoom,
+            'ratio'      => $ratioStr,
+            'width_pct'  => $widthPct,
+            'height_pct' => $heightPct,
+            'left_pct'   => $leftPct,
+            'top_pct'    => $topPct,
+            'css'        => $css,
         ];
     }
 

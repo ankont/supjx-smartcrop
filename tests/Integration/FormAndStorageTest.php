@@ -77,7 +77,7 @@ final class FormAndStorageTest
         $this->assertTrue(!empty($item->smartcrop_intro_style));
         $this->assertTrue(str_contains($item->smartcrop_intro_style, 'object-position: 50% 50%;'));
         $this->assertTrue(str_contains($item->smartcrop_intro_style, 'transform-origin: 50% 50%;'));
-        $this->assertTrue(str_contains($item->smartcrop_intro_style, 'transform: scale(1.25);'));
+        $this->assertTrue(str_contains($item->smartcrop_intro_style, 'width: 125%'));
 
         // Also attached to item->images (which remains a valid JSON string)
         $this->assertTrue(is_string($item->images));
@@ -124,11 +124,11 @@ final class FormAndStorageTest
 
         $this->assertTrue(!empty($item->smartcrop_intro_style));
         $this->assertTrue(str_contains($item->smartcrop_intro_style, 'object-position: 50% 30%;'));
-        $this->assertTrue(str_contains($item->smartcrop_intro_style, 'transform: scale(1.33);'));
+        $this->assertTrue(str_contains($item->smartcrop_intro_style, 'width: 166.6667%'));
 
         $this->assertTrue(!empty($item->smartcrop_fulltext_style));
         $this->assertTrue(str_contains($item->smartcrop_fulltext_style, 'object-position: 50% 37.5%;'));
-        $this->assertTrue(str_contains($item->smartcrop_fulltext_style, 'transform: scale(1);'));
+        $this->assertTrue(str_contains($item->smartcrop_fulltext_style, 'height: 133.3333%'));
     }
 
     private function testOnContentPrepareWithEventObject(): void
@@ -147,7 +147,7 @@ final class FormAndStorageTest
         $plugin->onContentPrepare($event);
 
         $this->assertTrue(!empty($item->smartcrop_intro_style));
-        $this->assertTrue(str_contains($item->smartcrop_intro_style, 'transform: scale(1.5);'));
+        $this->assertTrue(str_contains($item->smartcrop_intro_style, 'width: 125%'));
     }
 }
 

@@ -186,7 +186,8 @@ final class SmartCropHelperTest
         // focal_y = (0.2 + 0.6/2) * 100 = 50%
         $this->assertTrue(str_contains($css, 'object-position: 50% 50%;'));
         $this->assertTrue(str_contains($css, 'transform-origin: 50% 50%;'));
-        $this->assertTrue(str_contains($css, 'transform: scale(1.5);'));
+        $this->assertTrue(str_contains($css, 'width: 125%'));
+        $this->assertTrue(str_contains($css, 'left: -12.5%'));
 
         // From mock article
         $article = $this->createMockArticle();
@@ -210,8 +211,13 @@ final class SmartCropHelperTest
         // focal_y = (0.1 + 0.4/2) * 100 = 30%
         $this->assertSame(50.0, $info['focal_x']);
         $this->assertSame(30.0, $info['focal_y']);
+        $this->assertSame(166.6667, $info['width_pct']);
+        $this->assertSame(250.0, $info['height_pct']);
+        $this->assertSame(-33.3333, $info['left_pct']);
+        $this->assertSame(-25.0, $info['top_pct']);
         $this->assertSame(1.33, $info['zoom']);
         $this->assertSame('4:3', $info['ratio']);
         $this->assertTrue(str_contains($info['css'], 'object-position: 50% 30%;'));
+        $this->assertTrue(str_contains($info['css'], 'width: 166.6667%'));
     }
 }

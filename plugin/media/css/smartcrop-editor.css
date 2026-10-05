@@ -24,39 +24,81 @@
     border-color: #146c43;
 }
 
-/* Media Field Image Preview Framing */
-joomla-field-media .field-media-preview .preview_img,
-.field-media-preview .preview_img {
-    height: 100%;
-    max-height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+/* Media Field Image Preview: Fix Joomla core duplicate class glitch and hide empty/broken preview */
+.field-media-preview .preview_empty.hidden,
+.field-media-preview .preview_empty[class*="hidden"] {
+    display: none !important;
 }
 
+/* If preview container has an img with valid src, hide preview_empty */
+.field-media-preview:has(.preview_img img[src]:not([src=""]):not([src="#"])) .preview_empty,
+.field-media-preview:has(> img[src]:not([src=""]):not([src="#"])) .preview_empty {
+    display: none !important;
+}
+
+/* If no valid image in preview_img, hide broken img icon and preview_img container */
+.field-media-preview .preview_img img[src=""],
+.field-media-preview .preview_img img:not([src]),
+.field-media-preview .preview_img img[src="#"] {
+    display: none !important;
+}
+
+.field-media-preview:not(:has(img[src]:not([src=""]):not([src="#"]))) .preview_img {
+    display: none !important;
+}
+
+/* Ensure preview_img lets flexbox directly center children without causing stretching */
+.field-media-preview .preview_img {
+    display: contents !important;
+}
+
+/* Standard un-cropped preview image: perfectly centered, natural aspect ratio, never stretched or distorted */
+.field-media-preview img:not(.smartcrop-preview-frame img),
+.field-media-preview .preview_img > img:not(.smartcrop-preview-frame img) {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
+    margin: auto !important;
+    align-self: center !important;
+}
+
+/* Base Preview Frame */
 joomla-field-media .smartcrop-preview-frame,
 .smartcrop-preview-frame {
     position: relative !important;
-    overflow: hidden !important;
-    height: 160px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     max-height: 100% !important;
     max-width: 100% !important;
+    margin: auto !important;
+    align-self: center !important;
     border-radius: 4px;
+    cursor: default !important;
+    box-sizing: border-box !important;
+}
+
+/* Cropped Preview Frame (fixed 4:3 viewport) */
+joomla-field-media .smartcrop-preview-frame.is-cropped,
+.smartcrop-preview-frame.is-cropped {
+    overflow: hidden !important;
+    aspect-ratio: 4 / 3 !important;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
-    display: block !important;
-    cursor: pointer;
     background-color: transparent;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-joomla-field-media .smartcrop-preview-frame:hover,
-.smartcrop-preview-frame:hover {
-    transform: scale(1.02);
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.28);
+/* Un-cropped Preview Frame: no clipping, no aspect ratio */
+joomla-field-media .smartcrop-preview-frame:not(.is-cropped),
+.smartcrop-preview-frame:not(.is-cropped) {
+    overflow: visible !important;
+    box-shadow: none !important;
 }
 
-joomla-field-media .smartcrop-preview-frame img,
-.smartcrop-preview-frame img {
+/* Cropped image inside frame */
+joomla-field-media .smartcrop-preview-frame.is-cropped img,
+.smartcrop-preview-frame.is-cropped img {
     position: absolute !important;
     max-width: none !important;
     max-height: none !important;
@@ -65,25 +107,83 @@ joomla-field-media .smartcrop-preview-frame img,
     pointer-events: none !important;
 }
 
-joomla-field-media .smartcrop-preview-badge,
-.smartcrop-preview-badge {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    z-index: 5;
-    font-size: 0.68rem;
-    font-weight: 600;
-    line-height: 1;
-    padding: 3px 6px;
-    border-radius: 3px;
-    background: rgba(25, 135, 84, 0.92);
-    color: #ffffff;
+/* Un-cropped image inside frame: height 100%, width auto, object-fit contain */
+.smartcrop-preview-frame:not(.is-cropped) img {
+    height: 100% !important;
+    max-height: 100% !important;
+    width: auto !important;
+    max-width: 100% !important;
+    object-fit: contain !important;
+    display: block !important;
+    margin: auto !important;
+    border-radius: 4px;
+}
+
+/* SmartCrop Overlay Button inside Preview */
+.smartcrop-preview-btn {
+    position: absolute !important;
+    top: 6px !important;
+    right: 6px !important;
+    z-index: 10 !important;
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
+    padding: 4px 7px !important;
+    border-radius: 4px !important;
+    border: 1px solid transparent !important;
+    cursor: pointer !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    backdrop-filter: blur(4px) !important;
+    transition: opacity 0.2s ease, transform 0.15s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.15s ease !important;
+}
+
+/* Uncropped state: invisible by default, visible on hover */
+.smartcrop-preview-btn:not(.is-cropped) {
+    opacity: 0;
     pointer-events: none;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    backdrop-filter: blur(2px);
+    background: rgba(33, 37, 41, 0.85) !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
+    transform: translateY(-2px);
+}
+
+.field-media-preview:hover .smartcrop-preview-btn:not(.is-cropped),
+.smartcrop-preview-frame:hover .smartcrop-preview-btn:not(.is-cropped),
+.smartcrop-preview-btn:not(.is-cropped):focus-visible {
+    opacity: 0.9 !important;
+    pointer-events: auto !important;
+    transform: translateY(0) !important;
+}
+
+.smartcrop-preview-btn:not(.is-cropped):hover {
+    opacity: 1 !important;
+    background: #0d6efd !important;
+    border-color: #0d6efd !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+    transform: scale(1.05) !important;
+}
+
+/* Cropped state: faint green by default ("αχνά"), solid green on hover */
+.smartcrop-preview-btn.is-cropped {
+    opacity: 0.55 !important;
+    pointer-events: auto !important;
+    background: rgba(25, 135, 84, 0.75) !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.field-media-preview:hover .smartcrop-preview-btn.is-cropped,
+.smartcrop-preview-frame:hover .smartcrop-preview-btn.is-cropped,
+.smartcrop-preview-btn.is-cropped:hover,
+.smartcrop-preview-btn.is-cropped:focus-visible {
+    opacity: 1 !important;
+    background: #198754 !important;
+    border-color: #157347 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+    transform: scale(1.05) !important;
 }
 
 /* Hide legacy dashed trigger widget below field */
