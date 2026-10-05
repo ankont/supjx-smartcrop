@@ -723,9 +723,48 @@ class SmartCropModalController {
                 this.ratioW,
                 this.ratioH
             );
+
+            const mediaWrapper = targetInput.closest('joomla-field-media') || this.currentMediaWrapper;
+
+            // Synchronize <joomla-field-media> internal state so core validateValue never reverts it
+            if (mediaWrapper) {
+                mediaWrapper.validatedUrl = updatedUri;
+                if (mediaWrapper.inputElement) {
+                    mediaWrapper.inputElement.value = updatedUri;
+                }
+            }
+
+            // Update input value and DOM attributes
             targetInput.value = updatedUri;
-            targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+            targetInput.defaultValue = updatedUri;
+            targetInput.setAttribute('value', updatedUri);
+
+            // Mark field valid on media wrapper if available
+            if (mediaWrapper && typeof mediaWrapper.markValid === 'function') {
+                mediaWrapper.markValid();
+            }
+
+            // Update preview if available
+            if (mediaWrapper && typeof mediaWrapper.updatePreview === 'function') {
+                try { mediaWrapper.updatePreview(); } catch (e) {}
+            }
+
+            // Scroll input to right so user visibly sees crop parameters in textbox
+            try {
+                targetInput.scrollLeft = targetInput.scrollWidth;
+            } catch (e) {}
+
+            // Dispatch events so form and custom element register the change
             targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+            targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+            if (mediaWrapper) {
+                mediaWrapper.dispatchEvent(new CustomEvent('change', {
+                    detail: { value: updatedUri },
+                    bubbles: true
+                }));
+            }
+
+            console.log('[SmartCrop] Crop applied successfully to field:', targetInput.name || targetInput.id, updatedUri);
         }
 
         // 2. Update crop button state
@@ -746,9 +785,37 @@ class SmartCropModalController {
         if (targetInput) {
             const currentVal = targetInput.value.trim();
             const clearedUri = this.removeCropFromUri(currentVal);
+
+            const mediaWrapper = targetInput.closest('joomla-field-media') || this.currentMediaWrapper;
+            if (mediaWrapper) {
+                mediaWrapper.validatedUrl = clearedUri;
+                if (mediaWrapper.inputElement) {
+                    mediaWrapper.inputElement.value = clearedUri;
+                }
+            }
+
             targetInput.value = clearedUri;
-            targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+            targetInput.defaultValue = clearedUri;
+            targetInput.setAttribute('value', clearedUri);
+
+            if (mediaWrapper && typeof mediaWrapper.markValid === 'function') {
+                mediaWrapper.markValid();
+            }
+
+            try {
+                targetInput.scrollLeft = 0;
+            } catch (e) {}
+
             targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+            targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+            if (mediaWrapper) {
+                mediaWrapper.dispatchEvent(new CustomEvent('change', {
+                    detail: { value: clearedUri },
+                    bubbles: true
+                }));
+            }
+
+            console.log('[SmartCrop] Crop cleared from field:', targetInput.name || targetInput.id, clearedUri);
         }
 
         const cropBtn = this.currentCropBtn || targetInput?.closest('.input-group')?.querySelector('.smartcrop-crop-btn');
@@ -768,35 +835,46 @@ class SmartCropModalController {
 
         const cropStr = `${x},${y},${w},${h}`;
         const ratioStr = `${rw}:${rh}`;
-        const zoomStr = zoom.toFixed(2);
+        const zoomStr = Number(zoom).toFixed(2);
+
+        let base = val;
+        let fragPath = '';
+        let queryParams = {};
 
         if (val.includes('#')) {
             const parts = val.split('#');
-            const base = parts[0];
+            base = parts[0];
             const frag = parts[1] || '';
             const qIdx = frag.indexOf('?');
 
-            let fragPath = frag;
-            let query = '';
             if (qIdx !== -1) {
                 fragPath = frag.substring(0, qIdx);
-                query = frag.substring(qIdx + 1);
+                const query = frag.substring(qIdx + 1);
+                query.split('&').forEach((pair) => {
+                    if (!pair) return;
+                    const [k, v] = pair.split('=');
+                    const dk = decodeURIComponent(k);
+                    if (dk) {
+                        queryParams[dk] = v ? decodeURIComponent(v) : '';
+                    }
+                });
+            } else {
+                fragPath = frag;
             }
-
-            const params = new URLSearchParams(query);
-            params.set('crop', cropStr);
-            params.set('ratio', ratioStr);
-            params.set('zoom', zoomStr);
-
-            return `${base}#${fragPath}?${params.toString()}`;
+        } else {
+            const clean = val.replace(/^local-[^/:]+[/:]*/i, 'images/').replace(/^\/+/, '');
+            fragPath = `joomlaImage://local-${clean}`;
         }
 
-        const clean = val.replace(/^local-[^/:]+[/:]*/i, 'images/').replace(/^\/+/, '');
-        const params = new URLSearchParams();
-        params.set('crop', cropStr);
-        params.set('ratio', ratioStr);
-        params.set('zoom', zoomStr);
-        return `${clean}#joomlaImage://local-${clean}?${params.toString()}`;
+        queryParams.crop = cropStr;
+        queryParams.ratio = ratioStr;
+        queryParams.zoom = zoomStr;
+
+        const qs = Object.entries(queryParams)
+            .map(([k, v]) => `${k}=${v}`)
+            .join('&');
+
+        return `${base}#${fragPath}?${qs}`;
     }
 
     removeCropFromUri(val) {
@@ -809,13 +887,22 @@ class SmartCropModalController {
 
         const fragPath = frag.substring(0, qIdx);
         const query = frag.substring(qIdx + 1);
-        const params = new URLSearchParams(query);
-        params.delete('crop');
-        params.delete('ratio');
-        params.delete('zoom');
 
-        const newQuery = params.toString();
-        return newQuery ? `${base}#${fragPath}?${newQuery}` : `${base}#${fragPath}`;
+        const queryParams = {};
+        query.split('&').forEach((pair) => {
+            if (!pair) return;
+            const [k, v] = pair.split('=');
+            const dk = decodeURIComponent(k);
+            if (dk && dk !== 'crop' && dk !== 'ratio' && dk !== 'zoom') {
+                queryParams[dk] = v ? decodeURIComponent(v) : '';
+            }
+        });
+
+        const qs = Object.entries(queryParams)
+            .map(([k, v]) => `${k}=${v}`)
+            .join('&');
+
+        return qs ? `${base}#${fragPath}?${qs}` : `${base}#${fragPath}`;
     }
 
     extractCropFromValue(val) {
@@ -833,15 +920,24 @@ class SmartCropModalController {
         if (qIdx === -1) return null;
 
         const query = s.substring(qIdx + 1);
-        const params = new URLSearchParams(query);
-        const cropStr = params.get('crop');
+        const queryParams = {};
+        query.split('&').forEach((pair) => {
+            if (!pair) return;
+            const [k, v] = pair.split('=');
+            const dk = decodeURIComponent(k);
+            if (dk) {
+                queryParams[dk] = v ? decodeURIComponent(v) : '';
+            }
+        });
+
+        const cropStr = queryParams['crop'];
         if (!cropStr) return null;
 
         const coords = cropStr.split(',').map(Number);
         if (coords.length !== 4 || coords.some(isNaN)) return null;
 
-        const zoom = parseFloat(params.get('zoom')) || 1.0;
-        const ratioStr = params.get('ratio') || '4:3';
+        const zoom = parseFloat(queryParams['zoom']) || 1.0;
+        const ratioStr = queryParams['ratio'] || '4:3';
         const [rw, rh] = ratioStr.split(':').map(Number);
 
         return {
@@ -993,6 +1089,26 @@ class SmartCropManager {
 
         mediaEl._smartcropInitialized = true;
 
+        const mediaWrapper = mediaEl.tagName === 'JOOMLA-FIELD-MEDIA' ? mediaEl : mediaEl.closest('joomla-field-media');
+        if (mediaWrapper && !mediaWrapper._smartcropPatched) {
+            mediaWrapper._smartcropPatched = true;
+            const origValidate = mediaWrapper.validateValue;
+            mediaWrapper.validateValue = async function(event) {
+                const val = event?.target?.value || '';
+                // If value has crop metadata, protect it from being stripped by core
+                if (val.includes('crop=')) {
+                    this.validatedUrl = val;
+                    if (typeof this.markValid === 'function') {
+                        this.markValid();
+                    }
+                    return;
+                }
+                if (origValidate) {
+                    return origValidate.call(this, event);
+                }
+            };
+        }
+
         let cropBtn = inputGroup.querySelector('.smartcrop-crop-btn');
         if (!cropBtn) {
             cropBtn = document.createElement('button');
@@ -1018,7 +1134,7 @@ class SmartCropManager {
 
         const updateBtnState = () => {
             const val = input.value.trim();
-            const hasCrop = /[?&]crop=[0-9.,-]+/i.test(val);
+            const hasCrop = /[?&]crop=[0-9.,%A-F-]+/i.test(val);
             if (hasCrop) {
                 cropBtn.className = 'btn btn-success smartcrop-crop-btn';
                 cropBtn.innerHTML = '<span class="icon-scissors" aria-hidden="true"></span> <span>✓ 4:3</span>';
