@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace SuperSoftJx\Plugin\Content\SmartCrop\Tests\Unit;
+namespace SuperSoft\Plugin\Content\SmartCrop\Tests\Unit;
 
-use SuperSoftJx\Plugin\Content\SmartCrop\Service\CropValidator;
+use SuperSoft\Plugin\Content\SmartCrop\Service\CropValidator;
 
 final class CropValidatorTest
 {
@@ -15,6 +15,7 @@ final class CropValidatorTest
         $this->testRatioCheck();
         $this->testOutOfBoundsRejection();
         $this->testClamping();
+        $this->testZoomOutValidation();
     }
 
     private function assertSame(mixed $expected, mixed $actual, string $message = ''): void
@@ -138,5 +139,53 @@ final class CropValidatorTest
         $this->assertTrue(is_array($cleaned));
         $this->assertSame(1.0, $cleaned['profiles']['default']['crop']['width']);
         $this->assertSame(1.0, $cleaned['profiles']['default']['crop']['height']);
+    }
+
+    private function testZoomOutValidation(): void
+    {
+        // Valid centered zoom-out (zoom = 50%, w=2.0, x=-0.5)
+        $zoomOutCrop = [
+            'version'  => 1,
+            'profiles' => [
+                'default' => [
+                    'source' => 'images/sample.jpg',
+                    'ratio'  => ['width' => 4, 'height' => 3],
+                    'crop'   => ['x' => -0.5, 'y' => -0.5, 'width' => 2.0, 'height' => 2.0],
+                    'zoom'   => 0.5,
+                ]
+            ]
+        ];
+
+        $cleaned = CropValidator::validateAndClean($zoomOutCrop, 4.0, 3.0);
+        $this->assertTrue(is_array($cleaned));
+        $this->assertSame(-0.5, $cleaned['profiles']['default']['crop']['x']);
+        $this->assertSame(2.0, $cleaned['profiles']['default']['crop']['width']);
+        $this->assertSame(0.5, $cleaned['profiles']['default']['zoom']);
+
+        // Invalid zoom-out: image completely off left of crop box (x > 0 when w > 1)
+        $badZoomOut1 = [
+            'version'  => 1,
+            'profiles' => [
+                'default' => [
+                    'source' => 'images/sample.jpg',
+                    'ratio'  => ['width' => 4, 'height' => 3],
+                    'crop'   => ['x' => 0.5, 'y' => -0.5, 'width' => 2.0, 'height' => 2.0],
+                ]
+            ]
+        ];
+        $this->assertNull(CropValidator::validateAndClean($badZoomOut1));
+
+        // Invalid zoom-out: image completely off right of crop box (x + w < 1)
+        $badZoomOut2 = [
+            'version'  => 1,
+            'profiles' => [
+                'default' => [
+                    'source' => 'images/sample.jpg',
+                    'ratio'  => ['width' => 4, 'height' => 3],
+                    'crop'   => ['x' => -2.0, 'y' => -0.5, 'width' => 2.0, 'height' => 2.0],
+                ]
+            ]
+        ];
+        $this->assertNull(CropValidator::validateAndClean($badZoomOut2));
     }
 }

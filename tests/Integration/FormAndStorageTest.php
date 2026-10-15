@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace SuperSoftJx\Plugin\Content\SmartCrop\Tests\Integration;
+namespace SuperSoft\Plugin\Content\SmartCrop\Tests\Integration;
 
 use Joomla\CMS\Form\Form;
-use SuperSoftJx\Plugin\Content\SmartCrop\Extension\SmartCrop;
-use SuperSoftJx\Plugin\Content\SmartCrop\Helper\SmartCropHelper;
+use SuperSoft\Plugin\Content\SmartCrop\Extension\SmartCrop;
+use SuperSoft\Plugin\Content\SmartCrop\Helper\SmartCropHelper;
 
 final class FormAndStorageTest
 {

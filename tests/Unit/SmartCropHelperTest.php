@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace SuperSoftJx\Plugin\Content\SmartCrop\Tests\Unit;
+namespace SuperSoft\Plugin\Content\SmartCrop\Tests\Unit;
 
-use SuperSoftJx\Plugin\Content\SmartCrop\Helper\SmartCropHelper;
+use SuperSoft\Plugin\Content\SmartCrop\Helper\SmartCropHelper;
 
 final class SmartCropHelperTest
 {
@@ -19,6 +19,12 @@ final class SmartCropHelperTest
         $this->testParseCropFromUri();
         $this->testGetCssStyle();
         $this->testGetFocalPointAndScale();
+        $this->testResolveCropPresentation();
+        $this->testResolveCropPresentationSourceMismatch();
+        $this->testResolveCropPresentationFromUsageArray();
+        $this->testResolveCropPresentationFromJsonString();
+        $this->testResolveCropPresentationFromAddressString();
+        $this->testRenderImageWithMetadata();
     }
 
     private function assertSame(mixed $expected, mixed $actual, string $message = ''): void
@@ -219,5 +225,140 @@ final class SmartCropHelperTest
         $this->assertSame('4:3', $info['ratio']);
         $this->assertTrue(str_contains($info['css'], 'object-position: 50% 30%;'));
         $this->assertTrue(str_contains($info['css'], 'width: 166.6667%'));
+
+        // Zoom-out test (zoom = 0.50, centered in 4:3)
+        $uriZoomOut = 'images/photo.png#joomlaImage://...?crop=-0.5,-0.5,2.0,2.0&zoom=0.50&ratio=4:3';
+        $infoZoomOut = SmartCropHelper::getFocalPointAndScale($uriZoomOut);
+        $this->assertTrue(is_array($infoZoomOut));
+        $this->assertSame(0.5, $infoZoomOut['zoom']);
+        $this->assertSame(50.0, $infoZoomOut['width_pct']);
+        $this->assertSame(50.0, $infoZoomOut['height_pct']);
+        $this->assertSame(25.0, $infoZoomOut['left_pct']);
+        $this->assertSame(25.0, $infoZoomOut['top_pct']);
+        $this->assertTrue(str_contains($infoZoomOut['css'], 'width: 50%'));
+        $this->assertTrue(str_contains($infoZoomOut['css'], 'left: 25%'));
+    }
+
+    private function testResolveCropPresentation(): void
+    {
+        $metadata = [
+            'source' => 'images/intro.jpg',
+            'crop'   => ['x' => 0.1, 'y' => 0.05, 'width' => 0.8, 'height' => 0.6],
+            'ratio'  => ['width' => 4, 'height' => 3],
+            'zoom'   => 1.25,
+        ];
+
+        // Valid resolution with matching final image
+        $pres = SmartCropHelper::resolveCropPresentation('images/intro.jpg', $metadata);
+        $this->assertTrue(is_array($pres));
+        $this->assertTrue($pres['is_cropped']);
+        $this->assertSame(0.1, $pres['crop']['x']);
+        $this->assertSame(0.8, $pres['crop']['width']);
+        $this->assertSame(1.25, $pres['zoom']);
+        $this->assertSame(125.0, $pres['values']['width_pct']);
+        $this->assertSame(166.6667, $pres['values']['height_pct']);
+        $this->assertSame(-12.5, $pres['values']['left_pct']);
+        $this->assertSame(-8.3333, $pres['values']['top_pct']);
+        $this->assertSame(50.0, $pres['focal']['x']);
+        $this->assertSame(35.0, $pres['focal']['y']);
+        $this->assertTrue(str_contains($pres['styles']['container'], 'aspect-ratio: 4 / 3'));
+        $this->assertTrue(str_contains($pres['styles']['image'], 'left: -12.5%'));
+        $this->assertTrue(str_contains($pres['styles']['css_variables'], '--smartcrop-zoom: 1.25'));
+        $this->assertSame('1.25', $pres['style_vars']['--smartcrop-zoom']);
+
+        // Works also with isCropApplicable
+        $this->assertTrue(SmartCropHelper::isCropApplicable('images/intro.jpg', $metadata));
+    }
+
+    private function testResolveCropPresentationSourceMismatch(): void
+    {
+        $metadata = [
+            'source' => 'images/intro.jpg',
+            'crop'   => ['x' => 0.1, 'y' => 0.05, 'width' => 0.8, 'height' => 0.6],
+            'ratio'  => ['width' => 4, 'height' => 3],
+            'zoom'   => 1.2,
+        ];
+
+        // Final image changed (e.g. Intro image updated in Joomla article)
+        $pres = SmartCropHelper::resolveCropPresentation('images/new-different-intro.jpg', $metadata);
+        $this->assertNull($pres, 'Stale crop on changed Intro Image must return null');
+        $this->assertFalse(SmartCropHelper::isCropApplicable('images/new-different-intro.jpg', $metadata));
+    }
+
+    private function testResolveCropPresentationFromUsageArray(): void
+    {
+        // Metadata passed as full SmartBrowser usage dictionary with ext.smartcrop.crop key
+        $usage = [
+            'article.displayedName' => 'My Article',
+            'ext.smartcrop.crop'    => [
+                'source' => 'images/intro.jpg',
+                'crop'   => ['x' => 0.0, 'y' => 0.0, 'width' => 1.0, 'height' => 0.75],
+                'ratio'  => ['width' => 16, 'height' => 9],
+                'zoom'   => 1.0,
+            ],
+        ];
+
+        $pres = SmartCropHelper::resolveCropPresentation('/images/intro.jpg#joomlaImage://...', $usage);
+        $this->assertTrue(is_array($pres));
+        $this->assertSame('16:9', $pres['ratio']['label']);
+        $this->assertSame(100.0, $pres['values']['width_pct']);
+        $this->assertSame(133.3333, $pres['values']['height_pct']);
+        $this->assertSame(0.0, $pres['values']['left_pct']);
+    }
+
+    private function testResolveCropPresentationFromJsonString(): void
+    {
+        // JSON-encoded string in usage storage
+        $json = json_encode([
+            'source' => 'images/intro.jpg',
+            'crop'   => ['x' => 0.2, 'y' => 0.2, 'width' => 0.5, 'height' => 0.5],
+            'ratio'  => '1:1',
+            'zoom'   => 1.5,
+        ]);
+
+        $pres = SmartCropHelper::resolveCropPresentation('images/intro.jpg', $json);
+        $this->assertTrue(is_array($pres));
+        $this->assertSame(1.5, $pres['zoom']);
+        $this->assertSame(1.0, $pres['ratio']['width']);
+        $this->assertSame(1.0, $pres['ratio']['height']);
+        $this->assertSame(200.0, $pres['values']['width_pct']);
+        $this->assertSame(-40.0, $pres['values']['left_pct']);
+    }
+
+    private function testResolveCropPresentationFromAddressString(): void
+    {
+        // Selection Address string containing crop compound parameters
+        $address = 'https://example.org/article#joomlaItem://article/43?crop=c&c.coords=0.1000,0.2000,0.8000,0.6000&c.ratio=4:3&c.zoom=1.20&c.src=images%2Fintro.jpg';
+
+        $pres = SmartCropHelper::resolveCropPresentation('images/intro.jpg', $address);
+        $this->assertTrue(is_array($pres));
+        $this->assertSame(0.1, $pres['crop']['x']);
+        $this->assertSame(0.8, $pres['crop']['width']);
+        $this->assertSame(1.2, $pres['zoom']);
+
+        // Mismatched image returns null
+        $mismatch = SmartCropHelper::resolveCropPresentation('images/other.jpg', $address);
+        $this->assertNull($mismatch);
+    }
+
+    private function testRenderImageWithMetadata(): void
+    {
+        $metadata = [
+            'source' => 'images/intro.jpg',
+            'crop'   => ['x' => 0.1, 'y' => 0.1, 'width' => 0.8, 'height' => 0.6],
+            'ratio'  => ['width' => 4, 'height' => 3],
+        ];
+
+        // Valid metadata renders framed HTML
+        $html = SmartCropHelper::renderImageWithMetadata('images/intro.jpg', $metadata, ['alt' => 'Intro']);
+        $this->assertTrue(str_contains($html, 'smartcrop-frame is-cropped'));
+        $this->assertTrue(str_contains($html, 'aspect-ratio: 4 / 3'));
+        $this->assertTrue(str_contains($html, 'alt="Intro"'));
+
+        // Mismatched image renders plain fallback img without crop frame
+        $fallbackHtml = SmartCropHelper::renderImageWithMetadata('images/different.jpg', $metadata, ['alt' => 'Diff']);
+        $this->assertFalse(str_contains($fallbackHtml, 'smartcrop-frame'));
+        $this->assertTrue(str_contains($fallbackHtml, '<img src='));
+        $this->assertTrue(str_contains($fallbackHtml, 'alt="Diff"'));
     }
 }

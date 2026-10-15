@@ -9,15 +9,15 @@ require_once __DIR__ . '/Unit/VisualResolverTest.php';
 require_once __DIR__ . '/Unit/SmartCropHelperTest.php';
 require_once __DIR__ . '/Integration/FormAndStorageTest.php';
 
-use SuperSoftJx\Plugin\Content\SmartCrop\Tests\Unit\ImageNormalizerTest;
-use SuperSoftJx\Plugin\Content\SmartCrop\Tests\Unit\CropValidatorTest;
-use SuperSoftJx\Plugin\Content\SmartCrop\Tests\Unit\VisualResolverTest;
-use SuperSoftJx\Plugin\Content\SmartCrop\Tests\Unit\SmartCropHelperTest;
-use SuperSoftJx\Plugin\Content\SmartCrop\Tests\Integration\FormAndStorageTest;
+use SuperSoft\Plugin\Content\SmartCrop\Tests\Unit\ImageNormalizerTest;
+use SuperSoft\Plugin\Content\SmartCrop\Tests\Unit\CropValidatorTest;
+use SuperSoft\Plugin\Content\SmartCrop\Tests\Unit\VisualResolverTest;
+use SuperSoft\Plugin\Content\SmartCrop\Tests\Unit\SmartCropHelperTest;
+use SuperSoft\Plugin\Content\SmartCrop\Tests\Integration\FormAndStorageTest;
 
 echo "============================================================\n";
-echo "SuperSoftJx SmartCrop (plg_content_smartcrop) - Test Suite\n";
-echo "Target: Joomla 5.4.x / 6.x | Version: 1.0.0\n";
+echo "SuperSoft SmartCrop (plg_content_smartcrop) - Test Suite\n";
+echo "Target: Joomla 5.4.x / 6.x | Version: 1.4.0\n";
 echo "============================================================\n\n";
 
 $suites = [

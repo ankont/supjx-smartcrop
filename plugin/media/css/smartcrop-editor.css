@@ -1,6 +1,6 @@
 /**
- * SuperSoftJx SmartCrop - Editor Stylesheet
- * Version 1.0.0
+ * SuperSoft SmartCrop - Editor Stylesheet
+ * Version 1.4.0
  */
 
 /* Crop Button inside .input-group */
@@ -22,6 +22,18 @@
 .input-group .smartcrop-crop-btn.btn-success:hover {
     background-color: #157347;
     border-color: #146c43;
+}
+
+/* Media Field Image Preview: allow Big Picture Ghost to float freely outside container on hover */
+joomla-field-media .field-media-preview,
+.field-media-preview {
+    position: relative !important;
+    overflow: visible !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    border-radius: 4px;
 }
 
 /* Media Field Image Preview: Fix Joomla core duplicate class glitch and hide empty/broken preview */
@@ -78,14 +90,16 @@ joomla-field-media .smartcrop-preview-frame,
     border-radius: 4px;
     cursor: default !important;
     box-sizing: border-box !important;
+    z-index: 2 !important;
+    transition: box-shadow 0.2s ease, transform 0.2s ease !important;
 }
 
-/* Cropped Preview Frame (fixed 4:3 viewport) */
+/* Cropped Preview Frame (overflow: visible allows ghost to extend outside frame) */
 joomla-field-media .smartcrop-preview-frame.is-cropped,
 .smartcrop-preview-frame.is-cropped {
-    overflow: hidden !important;
+    overflow: visible !important;
     aspect-ratio: 4 / 3 !important;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: none !important;
     background-color: transparent;
 }
 
@@ -96,9 +110,33 @@ joomla-field-media .smartcrop-preview-frame:not(.is-cropped),
     box-shadow: none !important;
 }
 
+/* Inner clip container: strictly clips the cropped image to the frame bounds */
+.smartcrop-preview-clip {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    border-radius: 4px !important;
+    z-index: 2 !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    transition: box-shadow 0.2s ease, transform 0.15s ease !important;
+}
+
+.smartcrop-preview-frame:not(.is-cropped) .smartcrop-preview-clip {
+    position: relative !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
 /* Cropped image inside frame */
-joomla-field-media .smartcrop-preview-frame.is-cropped img,
-.smartcrop-preview-frame.is-cropped img {
+joomla-field-media .smartcrop-preview-frame.is-cropped img:not(.smartcrop-preview-ghost),
+.smartcrop-preview-frame.is-cropped img:not(.smartcrop-preview-ghost) {
     position: absolute !important;
     max-width: none !important;
     max-height: none !important;
@@ -108,7 +146,7 @@ joomla-field-media .smartcrop-preview-frame.is-cropped img,
 }
 
 /* Un-cropped image inside frame: height 100%, width auto, object-fit contain */
-.smartcrop-preview-frame:not(.is-cropped) img {
+.smartcrop-preview-frame:not(.is-cropped) img:not(.smartcrop-preview-ghost) {
     height: 100% !important;
     max-height: 100% !important;
     width: auto !important;
@@ -140,50 +178,204 @@ joomla-field-media .smartcrop-preview-frame.is-cropped img,
     transition: opacity 0.2s ease, transform 0.15s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.15s ease !important;
 }
 
-/* Uncropped state: invisible by default, visible on hover */
+/* Uncropped state: dark translucent pill, always visible and clickable */
 .smartcrop-preview-btn:not(.is-cropped) {
-    opacity: 0;
-    pointer-events: none;
-    background: rgba(33, 37, 41, 0.85) !important;
-    color: #ffffff !important;
-    border-color: rgba(255, 255, 255, 0.25) !important;
-    transform: translateY(-2px);
-}
-
-.field-media-preview:hover .smartcrop-preview-btn:not(.is-cropped),
-.smartcrop-preview-frame:hover .smartcrop-preview-btn:not(.is-cropped),
-.smartcrop-preview-btn:not(.is-cropped):focus-visible {
-    opacity: 0.9 !important;
+    opacity: 0.85 !important;
     pointer-events: auto !important;
-    transform: translateY(0) !important;
+    background: rgba(33, 37, 41, 0.82) !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    transform: none !important;
 }
 
-.smartcrop-preview-btn:not(.is-cropped):hover {
+.smartcrop-preview-btn:not(.is-cropped):hover,
+.smartcrop-preview-btn:not(.is-cropped):focus-visible {
     opacity: 1 !important;
     background: #0d6efd !important;
     border-color: #0d6efd !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45) !important;
     transform: scale(1.05) !important;
 }
 
-/* Cropped state: faint green by default ("αχνά"), solid green on hover */
+/* Cropped state: green translucent pill, always visible and clickable */
 .smartcrop-preview-btn.is-cropped {
-    opacity: 0.55 !important;
+    opacity: 0.85 !important;
     pointer-events: auto !important;
-    background: rgba(25, 135, 84, 0.75) !important;
+    background: rgba(25, 135, 84, 0.85) !important;
     color: #ffffff !important;
-    border-color: rgba(255, 255, 255, 0.25) !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    transform: none !important;
 }
 
-.field-media-preview:hover .smartcrop-preview-btn.is-cropped,
-.smartcrop-preview-frame:hover .smartcrop-preview-btn.is-cropped,
 .smartcrop-preview-btn.is-cropped:hover,
 .smartcrop-preview-btn.is-cropped:focus-visible {
     opacity: 1 !important;
     background: #198754 !important;
     border-color: #157347 !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important;
     transform: scale(1.05) !important;
+}
+
+/* Big Picture Ghost Layer: identical zoom & position, overflows frame freely behind clip */
+.smartcrop-preview-ghost {
+    position: absolute !important;
+    max-width: none !important;
+    max-height: none !important;
+    pointer-events: none !important;
+    z-index: 1 !important;
+    opacity: 0 !important;
+    border-radius: 6px !important;
+    filter: brightness(0.92) contrast(0.96);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Stacking context: when hovering/revealing, elevate preview and frame above inputs and adjacent controls */
+.field-media-preview.is-revealing-ghost,
+.field-media-preview:has(.is-revealing-ghost),
+.field-media-preview:has(.smartcrop-preview-btn:hover),
+joomla-field-media:has(.is-revealing-ghost),
+joomla-field-media:has(.smartcrop-preview-btn:hover),
+.resource-lightweight-area.is-revealing-ghost,
+.resource-lightweight-area:has(.is-revealing-ghost),
+.resource-info-panel:has(.is-revealing-ghost),
+.sb-selected-panel:has(.is-revealing-ghost),
+.sb-selection-field:has(.is-revealing-ghost),
+.sb-selection-field.is-revealing-ghost,
+.smartbrowser-collection:has(.is-revealing-ghost) {
+    z-index: 1050 !important;
+    overflow: visible !important;
+}
+
+.resource-lightweight-visual {
+    position: relative !important;
+}
+
+.resource-lightweight-visual .smartcrop-preview-btn {
+    position: absolute !important;
+    top: 8px !important;
+    right: 8px !important;
+    z-index: 1055 !important;
+}
+
+/* SmartBrowser Visual Overlay Integration (.resource-visual-overlay) */
+.resource-visual-overlay .smartcrop-preview-btn {
+    position: absolute !important;
+    top: 8px !important;
+    right: 8px !important;
+    z-index: 1055 !important;
+    pointer-events: auto !important;
+}
+
+.resource-visual-overlay .smartcrop-preview-frame {
+    position: absolute !important;
+    overflow: visible !important;
+    border-radius: 4px !important;
+    transition: box-shadow 0.2s ease !important;
+}
+
+.resource-visual-overlay .smartcrop-preview-clip {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    border-radius: 4px !important;
+    z-index: 2 !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    transition: box-shadow 0.2s ease !important;
+}
+
+.resource-visual-overlay .smartcrop-cropped-preview {
+    position: absolute !important;
+    max-width: none !important;
+    max-height: none !important;
+    display: block !important;
+    object-fit: fill !important;
+    pointer-events: none !important;
+}
+
+.resource-visual-overlay .smartcrop-preview-ghost {
+    position: absolute !important;
+    max-width: none !important;
+    max-height: none !important;
+    pointer-events: none !important;
+    z-index: 1 !important;
+    opacity: 0 !important;
+    border-radius: 6px !important;
+    filter: brightness(0.92) contrast(0.96);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Cropped visual: overflow hidden when normal, overflow visible when revealing ghost */
+.resource-lightweight-visual.is-cropped:not(.is-revealing-ghost) {
+    overflow: hidden !important;
+}
+
+.smartcrop-preview-frame.is-cropped.is-revealing-ghost,
+.smartcrop-preview-frame.is-cropped:has(.smartcrop-preview-btn:hover),
+.resource-lightweight-visual.is-cropped.is-revealing-ghost,
+.resource-lightweight-visual.is-cropped:has(.smartcrop-preview-btn:hover),
+.resource-lightweight-visual:has(.is-expanded-overlay) {
+    z-index: 1050 !important;
+    overflow: visible !important;
+}
+
+/* Internal clip wrapper inside resource-lightweight-visual */
+.resource-lightweight-visual.is-cropped .resource-visual-content,
+.resource-lightweight-visual.is-cropped .resource-visual-layer,
+.resource-lightweight-visual.is-cropped .smartcrop-preview-clip {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    border-radius: 4px !important;
+    z-index: 2 !important;
+}
+
+/* Reveal Big Picture Ghost on scissors / crop button hover */
+.smartcrop-preview-frame.is-cropped.is-revealing-ghost .smartcrop-preview-ghost,
+.smartcrop-preview-frame.is-cropped:has(.smartcrop-preview-btn:hover) .smartcrop-preview-ghost,
+.resource-lightweight-visual.is-cropped.is-revealing-ghost .smartcrop-preview-ghost,
+.resource-lightweight-visual.is-cropped:has(.smartcrop-preview-btn:hover) .smartcrop-preview-ghost,
+.resource-visual-overlay.is-revealing-ghost .smartcrop-preview-ghost,
+.resource-visual-overlay:has(.smartcrop-preview-btn:hover) .smartcrop-preview-ghost,
+.resource-visual-overlay.is-expanded-overlay .smartcrop-preview-ghost,
+.resource-lightweight-visual:has(.is-expanded-overlay) .smartcrop-preview-ghost {
+    opacity: 0.65 !important;
+    z-index: 1051 !important;
+}
+
+/* Highlight crop frame clip container when revealing ghost */
+.smartcrop-preview-frame.is-cropped.is-revealing-ghost .smartcrop-preview-clip,
+.smartcrop-preview-frame.is-cropped:has(.smartcrop-preview-btn:hover) .smartcrop-preview-clip,
+.resource-lightweight-visual.is-cropped.is-revealing-ghost .smartcrop-preview-clip,
+.resource-lightweight-visual.is-cropped:has(.smartcrop-preview-btn:hover) .smartcrop-preview-clip,
+.resource-lightweight-visual.is-cropped.is-revealing-ghost .resource-visual-layer,
+.resource-lightweight-visual.is-cropped:has(.smartcrop-preview-btn:hover) .resource-visual-layer,
+.resource-lightweight-visual.is-cropped.is-revealing-ghost img:not(.smartcrop-preview-ghost),
+.resource-lightweight-visual.is-cropped:has(.smartcrop-preview-btn:hover) img:not(.smartcrop-preview-ghost),
+.resource-visual-overlay.is-revealing-ghost .smartcrop-preview-clip,
+.resource-visual-overlay:has(.smartcrop-preview-btn:hover) .smartcrop-preview-clip,
+.resource-visual-overlay.is-expanded-overlay .smartcrop-preview-clip,
+.resource-lightweight-visual.is-cropped.is-revealing-ghost,
+.resource-lightweight-visual.is-cropped:has(.smartcrop-preview-btn:hover),
+.resource-lightweight-visual.is-cropped:has(.is-expanded-overlay) {
+    box-shadow: 0 0 0 2px #198754, 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Suppress SmartBrowser action-bar buttons when SmartCrop overlay button is active */
+.resource-lightweight-actions button[title*="SmartCrop"],
+.resource-lightweight-actions button[aria-label*="SmartCrop"],
+.resource-lightweight-actions button:has(.fa-crop-simple),
+.sb-article-image-field .resource-lightweight-actions button:has(.fa-crop-simple),
+.sb-article-image-preview ~ * .resource-lightweight-actions button:has(.fa-crop-simple),
+.sb-native-preview-host ~ * .resource-lightweight-actions button:has(.fa-crop-simple),
+.sb-native-preview-host .resource-lightweight-actions button:has(.fa-crop-simple),
+joomla-field-media .resource-lightweight-actions button:has(.fa-crop-simple) {
+    display: none !important;
 }
 
 /* Hide legacy dashed trigger widget below field */
@@ -210,7 +402,7 @@ joomla-field-media .smartcrop-preview-frame.is-cropped img,
     line-height: 1;
 }
 
-/* Modal Styling (Standalone overlay support independent of Bootstrap JS) */
+/* Modal Styling (Compact, Zero-Scroll, Standalone overlay) */
 .smartcrop-modal {
     display: none;
 }
@@ -232,7 +424,7 @@ joomla-field-media .smartcrop-preview-frame.is-cropped img,
     backdrop-filter: blur(2px);
     overflow-x: hidden;
     overflow-y: auto;
-    padding: 1rem;
+    padding: 0.75rem;
     box-sizing: border-box;
     opacity: 1 !important;
 }
@@ -240,7 +432,7 @@ joomla-field-media .smartcrop-preview-frame.is-cropped img,
 .smartcrop-modal.smartcrop-modal-visible .modal-dialog,
 .smartcrop-modal.show .modal-dialog {
     width: 100%;
-    max-width: 680px;
+    max-width: 600px;
     margin: auto;
     transform: none !important;
 }
@@ -253,51 +445,174 @@ joomla-field-media .smartcrop-preview-frame.is-cropped img,
     overflow: hidden;
 }
 
-.smartcrop-modal .modal-header {
-    background: var(--bs-tertiary-bg, #f8f9fa);
-    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
-    padding: 0.85rem 1.25rem;
+/* Modal Header Layout */
+.smartcrop-modal .modal-header,
+.smartcrop-modal-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    background: var(--bs-tertiary-bg, #f8f9fa) !important;
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6) !important;
+    padding: 0.55rem 0.95rem !important;
+    position: relative !important;
+    gap: 0.5rem !important;
+    min-height: 48px !important;
+    box-sizing: border-box !important;
 }
 
-.smartcrop-modal .modal-title {
-    font-size: 1.05rem;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+.smartcrop-header-left {
+    display: flex !important;
+    align-items: center !important;
+    flex: 1 1 0 !important;
+    justify-content: flex-start !important;
 }
 
-.smartcrop-modal .modal-body {
-    padding: 1.15rem 1.25rem;
+.smartcrop-header-center {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.4rem !important;
+    flex: 0 0 auto !important;
 }
 
-.smartcrop-modal .modal-footer {
-    background: var(--bs-tertiary-bg, #f8f9fa);
-    border-top: 1px solid var(--bs-border-color, #dee2e6);
-    padding: 0.75rem 1.25rem;
+.smartcrop-modal-title {
+    font-weight: 600 !important;
+    font-size: 0.92rem !important;
+    color: var(--bs-body-color, #212529) !important;
+    letter-spacing: 0.2px !important;
+    line-height: 1.2 !important;
 }
 
-/* Guide Banner */
-.smartcrop-guide-banner {
-    background-color: var(--bs-tertiary-bg, #f0f4f9);
-    border: 1px solid var(--bs-border-color, #cde0f7);
-    border-radius: 6px;
-    padding: 0.65rem 0.85rem;
-    margin-bottom: 1rem;
-    font-size: 0.84rem;
+.smartcrop-header-right {
+    display: flex !important;
+    align-items: center !important;
+    flex: 1 1 0 !important;
+    justify-content: flex-end !important;
+    gap: 0.5rem !important;
 }
 
-.smartcrop-guide-banner .smartcrop-steps {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.75rem;
+/* Help (i) Button & Popover */
+.smartcrop-help-wrapper {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
 }
 
-.smartcrop-guide-step {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
+.smartcrop-modal .smartcrop-help-btn {
+    border: none !important;
+    background: transparent !important;
+    color: #6c757d !important;
+    padding: 2px 4px !important;
+    font-size: 1rem !important;
+    line-height: 1 !important;
+    box-shadow: none !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    border-radius: 50% !important;
+    transition: color 0.15s ease, transform 0.15s ease !important;
+}
+
+.smartcrop-modal .smartcrop-help-btn:hover {
+    color: #0d6efd !important;
+    background: rgba(13, 110, 253, 0.08) !important;
+    transform: scale(1.1) !important;
+}
+
+.smartcrop-help-popover {
+    position: absolute !important;
+    top: calc(100% + 8px) !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    z-index: 1050 !important;
+    width: 280px !important;
+    background: var(--bs-body-bg, #ffffff) !important;
+    color: var(--bs-body-color, #212529) !important;
+    border: 1px solid var(--bs-border-color, #dee2e6) !important;
+    border-radius: 6px !important;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2) !important;
+    padding: 10px 14px !important;
+    font-size: 0.82rem !important;
+    line-height: 1.45 !important;
+    animation: smartcropFadeIn 0.15s ease !important;
+}
+
+.smartcrop-help-popover-title {
+    font-weight: 600 !important;
+    font-size: 0.84rem !important;
+    margin-bottom: 6px !important;
+    color: var(--bs-primary, #0d6efd) !important;
+}
+
+/* Complete immunity against Atum template modal button overrides */
+.smartcrop-modal .btn,
+.smartcrop-modal .modal-header .btn,
+.smartcrop-modal .btn:not([href]) {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.35rem !important;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    height: auto !important;
+    white-space: nowrap !important;
+    font-size: 0.82rem !important;
+    font-weight: 500 !important;
+    padding: 0.35rem 0.7rem !important;
+    line-height: 1.4 !important;
+    box-sizing: border-box !important;
+    border-radius: 4px !important;
+    flex-shrink: 0 !important;
+    text-decoration: none !important;
+}
+
+.smartcrop-modal .btn span,
+.smartcrop-modal .btn [class^="icon-"],
+.smartcrop-modal .btn [class*=" icon-"] {
+    display: inline-block !important;
+    background-color: transparent !important;
+    color: inherit !important;
+    block-size: auto !important;
+    inline-size: auto !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    margin-inline-start: 0 !important;
+    line-height: inherit !important;
+}
+
+.smartcrop-modal .smartcrop-btn-cancel {
+    background: transparent !important;
+    border: 1px solid #ced4da !important;
+    color: #495057 !important;
+}
+.smartcrop-modal .smartcrop-btn-cancel:hover {
+    background: #e9ecef !important;
+    border-color: #adb5bd !important;
+    color: #212529 !important;
+}
+
+.smartcrop-modal .smartcrop-btn-apply {
+    background: #198754 !important;
+    border: 1px solid #198754 !important;
+    color: #ffffff !important;
+}
+.smartcrop-modal .smartcrop-btn-apply:hover {
+    background: #157347 !important;
+    border-color: #146c43 !important;
+    color: #ffffff !important;
+}
+
+.smartcrop-modal .smartcrop-btn-remove {
+    background: transparent !important;
+    border: 1px solid #dc3545 !important;
+    color: #dc3545 !important;
+}
+.smartcrop-modal .smartcrop-btn-remove:hover {
+    background: #dc3545 !important;
+    border-color: #dc3545 !important;
+    color: #ffffff !important;
 }
 
 /* Viewport Darkroom Container */
@@ -384,22 +699,132 @@ joomla-field-media .smartcrop-preview-frame.is-cropped img,
     border-right: 2.5px solid #ffffff;
 }
 
-/* Viewfinder Overlay Badge */
+/* Viewfinder Overlay Badge & HUD Dropdown */
 .smartcrop-viewfinder-badge {
     position: absolute;
     top: 10px;
-    left: 30px;
-    background: rgba(0, 0, 0, 0.7);
+    left: 28px;
+    background: rgba(0, 0, 0, 0.75);
     color: #f0f6fc;
     font-size: 0.72rem;
     font-weight: 600;
     letter-spacing: 0.4px;
-    padding: 2px 7px;
+    padding: 3px 8px;
     border-radius: 4px;
-    pointer-events: none;
-    z-index: 4;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    z-index: 10;
     backdrop-filter: blur(4px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    user-select: none;
+    outline: none;
+    line-height: inherit;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.smartcrop-viewfinder-badge:hover {
+    background: rgba(22, 27, 34, 0.95);
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    transform: translateY(-1px);
+}
+
+.smartcrop-viewfinder-badge .smartcrop-caret {
+    font-size: 0.65rem;
+    opacity: 0.85;
+    margin-left: 2px;
+}
+
+.smartcrop-ratio-dropdown {
+    position: absolute;
+    top: 38px;
+    left: 28px;
+    z-index: 1050;
+    min-width: 220px;
+    background: rgba(13, 17, 23, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    padding: 4px;
+    user-select: none;
+    animation: smartcropFadeIn 0.15s ease;
+}
+
+/* Center Image Button */
+.smartcrop-btn-center {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.smartcrop-btn-center:hover {
+    background-color: var(--bs-primary, #0d6efd) !important;
+    border-color: var(--bs-primary, #0d6efd) !important;
+    color: #ffffff !important;
+}
+
+.smartcrop-ratio-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 6px 8px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: #c9d1d9;
+    font-size: 0.8rem;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.smartcrop-ratio-item:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+}
+
+.smartcrop-ratio-item.is-active {
+    background: rgba(56, 139, 253, 0.25);
+    color: #58a6ff;
+    font-weight: 600;
+}
+
+.smartcrop-ratio-check {
+    width: 18px;
+    font-size: 0.85rem;
+    color: #3fb950;
+    font-weight: bold;
+}
+
+.smartcrop-ratio-val {
+    font-family: monospace;
+    font-weight: 600;
+    font-size: 0.75rem;
+    color: #8b949e;
+    margin-right: 8px;
+    min-width: 32px;
+}
+
+.smartcrop-ratio-item.is-active .smartcrop-ratio-val {
+    color: #79c0ff;
+}
+
+.smartcrop-ratio-name {
+    flex-grow: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.smartcrop-ratio-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.12);
+    margin: 4px 0;
 }
 
 /* Rule of Thirds Guide Grid */
@@ -506,17 +931,17 @@ joomla-field-media .smartcrop-preview-frame.is-cropped img,
     opacity: 0.5;
 }
 
-/* Toolbar Controls inside Modal */
+/* Toolbar Controls inside Modal (Compact single-line) */
 .smartcrop-toolbar {
     background: var(--bs-tertiary-bg, #f8f9fa);
-    padding: 0.65rem 0.85rem;
+    padding: 0.45rem 0.65rem;
     border-radius: 6px;
     border: 1px solid var(--bs-border-color, #dee2e6);
 }
 
 .smartcrop-zoom-controls {
-    flex: 1 1 240px;
-    max-width: 340px;
+    flex: 1 1 auto;
+    max-width: 380px;
 }
 
 .smartcrop-zoom-slider {
@@ -524,59 +949,34 @@ joomla-field-media .smartcrop-preview-frame.is-cropped img,
     flex: 1;
 }
 
+/* Tick marks styling on range slider */
+.smartcrop-zoom-slider::-webkit-slider-runnable-track {
+    background-image: repeating-linear-gradient(to right, #ccc 0, #ccc 2px, transparent 0, transparent 25%);
+}
+
 .smartcrop-zoom-value {
-    min-width: 40px;
-    text-align: right;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
 }
 
-/* Quick Zoom Presets */
-.smartcrop-presets {
-    display: flex;
-    align-items: center;
-    gap: 3px;
+/* Discreet Coordinates */
+.smartcrop-live-coords-discreet {
+    user-select: none;
+    line-height: 1;
 }
 
-.smartcrop-btn-preset {
-    font-size: 0.76rem;
-    padding: 0.2rem 0.45rem;
-    border-radius: 4px;
-    font-weight: 500;
-}
-
-.smartcrop-btn-preset.is-active {
-    background-color: var(--bs-primary, #0d6efd);
-    color: #fff;
-    border-color: var(--bs-primary, #0d6efd);
-}
-
-/* Live Crop Coordinates */
-.smartcrop-live-coords-bar {
-    font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 0.75rem;
-    background: var(--bs-body-bg, #fff);
-    border: 1px solid var(--bs-border-color, #dee2e6);
-    border-radius: 4px;
-    padding: 0.25rem 0.6rem;
-    color: var(--bs-secondary-color, #6c757d);
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
+.smartcrop-live-coords-discreet small {
+    letter-spacing: 0.2px;
 }
 
 @media (max-width: 576px) {
     .smartcrop-toolbar {
-        flex-direction: column;
-        align-items: stretch !important;
+        flex-wrap: wrap;
     }
 
     .smartcrop-zoom-controls {
         max-width: 100%;
-    }
-
-    .smartcrop-presets {
-        justify-content: center;
     }
 }

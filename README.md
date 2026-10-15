@@ -1,4 +1,4 @@
-# Content - SuperSoftJx - SmartCrop (`plg_content_smartcrop`)
+# Content - SuperSoft - SmartCrop (`plg_content_smartcrop`)
 
 **SmartCrop** είναι ένα σύγχρονο, generic Joomla Content Plugin για τις εκδόσεις **Joomla 5.4.x** και **Joomla 6.x**, σχεδιασμένο να παρέχει ακριβές visual framing και μη-καταστροφικά metadata περικοπής (crop) για εικόνες άρθρων (`com_content.article`).
 
@@ -210,7 +210,7 @@ smartcrop
 ### Χρήση API:
 
 ```php
-use SuperSoftJx\Plugin\Content\SmartCrop\Helper\SmartCropHelper;
+use SuperSoft\Plugin\Content\SmartCrop\Helper\SmartCropHelper;
 
 // 1. Έλεγχος και ανάκτηση crop metadata
 $crop = SmartCropHelper::getCrop($article, $imageUrl, 'default');
@@ -286,7 +286,7 @@ $$\text{top} = -\frac{y}{h} \times 100\%$$
 $pres = \SmartCrop::getPresentation($item, $item->image);
 if ($pres): ?>
     <div class="article-framing-box" style="<?= $pres['styles']['container']; ?>">
-        <img src="<?= htmlspecialchars(\SuperSoftJx\Plugin\Content\SmartCrop\Service\ImageNormalizer::toUrl($item->image)); ?>"
+        <img src="<?= htmlspecialchars(\SuperSoft\Plugin\Content\SmartCrop\Service\ImageNormalizer::toUrl($item->image)); ?>"
              alt="<?= htmlspecialchars($item->title); ?>"
              style="<?= $pres['styles']['image']; ?>">
     </div>
@@ -302,7 +302,7 @@ if ($pres): ?>
 
 ## 15. Συμβατότητα Joomla 5.4.x & Joomla 6.x
 
-- **Strict PSR-4 Namespaces**: `SuperSoftJx\Plugin\Content\SmartCrop`
+- **Strict PSR-4 Namespaces**: `SuperSoft\Plugin\Content\SmartCrop`
 - **Joomla Dependency Injection**: Καταχώριση υπηρεσίας μέσω `services/provider.php` (`ServiceProviderInterface`).
 - **Joomla Web Asset Manager**: Καταχώριση assets μέσω `joomla.asset.json`. Τα scripts και styles του editor φορτώνονται **μόνο** στη φόρμα επεξεργασίας του άρθρου και ποτέ σε απλές frontend προβολές άρθρων.
 - **Form Integration**: Ενσωμάτωση μέσω `onContentPrepareForm`, `onContentBeforeValidateData`, και `onContentBeforeSave`.
@@ -322,11 +322,48 @@ php tests/run_tests.php
 ```cmd
 build.bat
 ```
-Το αρχείο παράγεται στο: `build/output/plg_content_smartcrop-v1.0.0.zip`.
+Το αρχείο παράγεται στο: `build/output/plg_content_smartcrop-v1.2.0.zip`.
 
 ---
 
 ## 16. Ιστορικό Εκδόσεων (Changelog)
+
+### v1.2.0 (2026-10-11)
+- **Υποστήριξη Zoom < 100% (Zoom Out / Framing με Κενά & Margins)**:
+  - Επιτρέπει σμίκρυνση της εικόνας κάτω από το 100% (ελάχιστο όριο 5% / 0.05 και ασφαλές όριο απόδοσης ~20px), δίνοντας τη δυνατότητα τοποθέτησης εικόνων στο κέντρο του κάδρου με περιθώρια (letterbox / pillarbox), απαραίτητο για διαφανή PNG, λογότυπα και ακραίες αναλογίες διαστάσεων.
+  - Επέκταση της λογικής μετακίνησης (panning) ώστε, όταν η εικόνα είναι μικρότερη από το παράθυρο καδραρίσματος, να σύρεται ομαλά και να κεντράρεται ελεύθερα εντός του πλαισίου.
+  - Πλήρης μαθηματική συνέπεια στον υπολογισμό και την επαλήθευση των κανονικοποιημένων συντεταγμένων ($w, h > 1$ και $x, y < 0$) σε JavaScript (`smartcrop-editor.js`), backend validation (`CropValidator.php`) και frontend CSS generation (`SmartCropHelper.php`).
+- **Ενισχυμένο Μαγνητικό Snapping (Stronger Snap)**:
+  - Αυξημένο όριο μαγνητικής έλξης του slider (snap threshold στο 5.5% για πιο σταθερή και άμεση αίσθηση έλξης).
+  - Προσθήκη επιπλέον σημείων έλξης για επίπεδα σμίκρυνσης (25%, 50%, 75%) καθώς και δυναμικό μαγνητικό snap στο φυσικό σημείο **Contain** (όπου ολόκληρη η εικόνα χωράει ακριβώς μέσα στο κάδρο).
+
+### v1.1.2 (2026-10-07)
+- **Διόρθωση Preview Image σε Νέα Άρθρα & Frontend Φόρμες (Broken `src="/"`)**:
+  - Αυτόματη ανάλυση και συγχρονισμός του πραγματικού image URL (`resolveImageUrl`) απευθείας από την τιμή του πεδίου (`input.value`) κατά την επιλογή αρχείου από τον Media Manager / SmartBrowser.
+  - Εξάλειψη του προβλήματος όπου το preview image παρέμενε με `src="/"` (το κενό fallback που παράγει αρχικά το Joomla PHP layout σε νέα άρθρα), αποτρέποντας broken image thumbnails και αποκαθιστώντας άμεσα την οπτική προεπισκόπηση και το καδράρισμα πριν την αποθήκευση.
+  - Υποστήριξη όλων των σχημάτων URI (`#joomlaImage://`, `local-files`, `local-images`, relative και absolute paths).
+
+### v1.1.1 (2026-10-07)
+- **Καθαρισμός Console Logs**:
+  - Αφαίρεση όλων των μηνυμάτων καταγραφής στην κονσόλα (`console.log`, `console.error`) για καθαρή και αθόρυβη εκτέλεση σε production.
+- **Βελτιώσεις Ακρίβειας Framing & Ghost Overlay**:
+  - Απόλυτος συγχρονισμός θέσης και κλίμακας (1:1 zoom) στο hover ghost reveal της αρχικής εικόνας στο thumbnail preview.
+  - Ενσωμάτωση μαγνητικού snapping του ποντικιού στα καθορισμένα tick points του Zoom Slider (100%, 125%, 150%, 200%, 300%).
+
+### v1.1.0 (2026-10-05)
+- **Υποστήριξη Πολλαπλών Αναλογιών (Multi-Ratio Subform)**:
+  - Προσθήκη επαναλαμβανόμενου Joomla `<field type="subform">` στις ρυθμίσεις του plugin με δυνατότητα ορισμού απεριόριστων αναλογιών (Ετικέτα/Όνομα, Πλάτος, Ύψος).
+  - Η πρώτη αναλογία ορίζεται αυτόματα ως προεπιλεγμένη.
+  - Δυνατότητα ενεργοποίησης/απενεργοποίησης ελεύθερης Προσαρμοσμένης (Custom) αναλογίας (`allow_custom_ratio`).
+- **Διαδραστικό Camera HUD Viewfinder Badge**:
+  - Το badge αναλογίας μέσα στο σκοπεύτρο της εικόνας (`📐 4:3 (Πλαίσιο άρθρου)`) γίνεται clickable.
+  - Άμεσο άνοιγμα dark HUD dropdown μενού για real-time εναλλαγή μεταξύ των διαμορφωμένων αναλογιών και υποστήριξη custom τιμής.
+- **Hover "Big Picture" Ghost Reveal στο Thumbnail Preview**:
+  - Όταν ο κέρσορας κάνει hover πάνω στο κουμπί [ ✂️ ], εμφανίζεται ημιδιάφανη η ολόκληρη αρχική εικόνα (ghost layer) στο background, προσφέροντας άμεση οπτική εποπτεία του τι κόβεται εκτός κάδρου.
+- **Νέο Compact Modal (Zero Vertical Scroll)**:
+  - Κατάργηση του `modal-footer` και μεταφορά των κουμπιών δράσης (Ακύρωση, Αφαίρεση, Εφαρμογή) στη μπάρα κεφαλίδας.
+  - Αφαίρεση του ογκώδους banner οδηγιών και ενσωμάτωση διακριτικού popover [ ℹ️ ].
+  - Ενιαία, κομψή γραμμή εργαλείων με slider και tick marks / datalist για τα ποσοστά (100%, 125%, 150%, 200%, 300%) και διακριτικές συντεταγμένες στη γωνία.
 
 ### v1.0.0 (2026-10-05)
 - **Επίσημη Έκδοση 1.0.0 (Stable / General Availability)**:

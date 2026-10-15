@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SuperSoftJx\Plugin\Content\SmartCrop\Service;
+namespace SuperSoft\Plugin\Content\SmartCrop\Service;
 
 defined('_JEXEC') or die;
 
@@ -140,24 +140,45 @@ final class CropValidator
         $w = (float) $crop['width'];
         $h = (float) $crop['height'];
 
-        // Strict boundary checks
-        if ($x < -0.0001 || $x > 1.0 || $y < -0.0001 || $y > 1.0) {
+        // Basic sanity check: widths must be positive, max 25x zoom-out
+        if ($w <= 0.0001 || $w > 25.0 || $h <= 0.0001 || $h > 25.0) {
             return null;
         }
 
-        if ($w <= 0.0001 || $w > 1.0001 || $h <= 0.0001 || $h > 1.0001) {
-            return null;
+        // X dimension bounds
+        if ($w <= 1.0001) {
+            // Zoom >= 100%: crop window inside image
+            if ($x < -0.0001 || ($x + $w) > 1.0005) {
+                return null;
+            }
+            $x = max(0.0, min(1.0, $x));
+            $w = max(0.0001, min(1.0 - $x, $w));
+        } else {
+            // Zoom < 100%: image inside crop window
+            // x <= 0 (crop left edge at/left of image) and x + w >= 1 (crop right edge at/right of image)
+            if ($x > 0.0001 || ($x + $w) < 0.9999 || $x < -25.0) {
+                return null;
+            }
+            $x = max(-25.0, min(0.0, $x));
+            $w = max(0.0001, min(25.0, $w));
         }
 
-        if (($x + $w) > 1.0005 || ($y + $h) > 1.0005) {
-            return null;
+        // Y dimension bounds
+        if ($h <= 1.0001) {
+            // Zoom >= 100%: crop window inside image
+            if ($y < -0.0001 || ($y + $h) > 1.0005) {
+                return null;
+            }
+            $y = max(0.0, min(1.0, $y));
+            $h = max(0.0001, min(1.0 - $y, $h));
+        } else {
+            // Zoom < 100%: image inside crop window
+            if ($y > 0.0001 || ($y + $h) < 0.9999 || $y < -25.0) {
+                return null;
+            }
+            $y = max(-25.0, min(0.0, $y));
+            $h = max(0.0001, min(25.0, $h));
         }
-
-        // Clamp values to [0, 1] range to avoid floating precision drift
-        $x = max(0.0, min(1.0, $x));
-        $y = max(0.0, min(1.0, $y));
-        $w = max(0.0001, min(1.0 - $x, $w));
-        $h = max(0.0001, min(1.0 - $y, $h));
 
         $cleanProfile = [
             'source' => $source,
@@ -172,6 +193,11 @@ final class CropValidator
                 'height' => round($h, 6),
             ],
         ];
+
+        // Optional zoom level if present
+        if (isset($profileData['zoom'])) {
+            $cleanProfile['zoom'] = round(max(0.05, min(5.0, (float) $profileData['zoom'])), 2);
+        }
 
         // Optional source dimensions if present
         $sourceDims = $profileData['source_dimensions'] ?? null;

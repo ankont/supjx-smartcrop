@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SuperSoftJx\Plugin\Content\SmartCrop\Service;
+namespace SuperSoft\Plugin\Content\SmartCrop\Service;
 
 defined('_JEXEC') or die;
 

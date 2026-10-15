@@ -8,8 +8,8 @@ use Joomla\CMS\Factory;
 use Joomla\CMS\Plugin\PluginHelper;
 use Joomla\DI\Container;
 use Joomla\DI\ServiceProviderInterface;
-use SuperSoftJx\Plugin\Content\SmartCrop\Extension\SmartCrop;
-use SuperSoftJx\Plugin\Content\SmartCrop\Helper\SmartCropHelper;
+use SuperSoft\Plugin\Content\SmartCrop\Extension\SmartCrop;
+use SuperSoft\Plugin\Content\SmartCrop\Helper\SmartCropHelper;
 
 return new class () implements ServiceProviderInterface {
     /**
@@ -26,7 +26,7 @@ return new class () implements ServiceProviderInterface {
             static function (Container $container) {
                 if (!class_exists(SmartCrop::class)) {
                     if (class_exists(\JLoader::class)) {
-                        \JLoader::registerNamespace('SuperSoftJx\\Plugin\\Content\\SmartCrop', dirname(__DIR__) . '/src');
+                        \JLoader::registerNamespace('SuperSoft\\Plugin\\Content\\SmartCrop', dirname(__DIR__) . '/src');
                     }
                 }
 

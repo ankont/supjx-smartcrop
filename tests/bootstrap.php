@@ -7,7 +7,7 @@ namespace {
 
     // Autoloader for plugin classes
     spl_autoload_register(function (string $class): void {
-        $prefix = 'SuperSoftJx\\Plugin\\Content\\SmartCrop\\';
+        $prefix = 'SuperSoft\\Plugin\\Content\\SmartCrop\\';
         if (str_starts_with($class, $prefix)) {
             $relativeClass = substr($class, strlen($prefix));
             $file = __DIR__ . '/../plugin/src/' . str_replace('\\', '/', $relativeClass) . '.php';

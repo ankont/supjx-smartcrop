@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SuperSoftJx\Plugin\Content\SmartCrop\Extension;
+namespace SuperSoft\Plugin\Content\SmartCrop\Extension;
 
 defined('_JEXEC') or die;
 
@@ -12,7 +12,7 @@ use Joomla\CMS\Factory;
 use Joomla\CMS\Form\Form;
 use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\Event\SubscriberInterface;
-use SuperSoftJx\Plugin\Content\SmartCrop\Helper\SmartCropHelper;
+use SuperSoft\Plugin\Content\SmartCrop\Helper\SmartCropHelper;
 use Throwable;
 
 final class SmartCrop extends CMSPlugin implements SubscriberInterface
@@ -181,6 +181,7 @@ final class SmartCrop extends CMSPlugin implements SubscriberInterface
         try {
             $doc = Factory::getApplication()->getDocument();
             if ($doc instanceof HtmlDocument) {
+                $doc->addScriptOptions('plg_content_smartcrop', $this->getEditorOptions());
                 $wa = $doc->getWebAssetManager();
                 $reg = $wa->getRegistry();
                 if (!$reg->exists('script', 'plg_content_smartcrop.editor')) {
@@ -193,11 +194,69 @@ final class SmartCrop extends CMSPlugin implements SubscriberInterface
             try {
                 $doc = Factory::getApplication()->getDocument();
                 if ($doc instanceof HtmlDocument) {
-                    $doc->addScript(\Joomla\CMS\Uri\Uri::root(true) . '/media/plg_content_smartcrop/js/smartcrop-editor.js', ['version' => 'auto'], ['defer' => true]);
-                    $doc->addStyleSheet(\Joomla\CMS\Uri\Uri::root(true) . '/media/plg_content_smartcrop/css/smartcrop-editor.css', ['version' => 'auto']);
+                    $doc->addScriptOptions('plg_content_smartcrop', $this->getEditorOptions());
+                    $doc->addScript(\Joomla\CMS\Uri\Uri::root(true) . '/media/plg_content_smartcrop/js/smartcrop-editor.js', ['version' => '1.3.1'], ['defer' => true]);
+                    $doc->addStyleSheet(\Joomla\CMS\Uri\Uri::root(true) . '/media/plg_content_smartcrop/css/smartcrop-editor.css', ['version' => '1.3.1']);
                 }
             } catch (Throwable) {
             }
         }
+    }
+
+    /**
+     * Resolves plugin configuration options for the frontend editor.
+     *
+     * @return array
+     */
+    public function getEditorOptions(): array
+    {
+        $supportedRatios = $this->params->get('supported_ratios', []);
+        $ratios = [];
+
+        if (is_string($supportedRatios)) {
+            $supportedRatios = json_decode($supportedRatios, true) ?? [];
+        }
+        if (is_object($supportedRatios)) {
+            $supportedRatios = (array) $supportedRatios;
+        }
+        if (is_array($supportedRatios)) {
+            foreach ($supportedRatios as $row) {
+                if (is_object($row)) {
+                    $row = (array) $row;
+                }
+                if (is_array($row) && !empty($row['width']) && !empty($row['height'])) {
+                    $label = trim((string) ($row['label'] ?? ''));
+                    $w = (float) $row['width'];
+                    $h = (float) $row['height'];
+                    if ($w > 0 && $h > 0) {
+                        $ratios[] = [
+                            'label'  => $label !== '' ? $label : sprintf('%s:%s', $w, $h),
+                            'width'  => $w,
+                            'height' => $h,
+                        ];
+                    }
+                }
+            }
+        }
+
+        if (empty($ratios)) {
+            $ratios = [
+                ['label' => 'Πλαίσιο άρθρου', 'width' => 4.0, 'height' => 3.0],
+                ['label' => 'Hero Banner',   'width' => 16.0, 'height' => 9.0],
+                ['label' => 'Τετράγωνο',     'width' => 1.0, 'height' => 1.0],
+            ];
+        }
+
+        $allowCustom = (bool) $this->params->get('allow_custom_ratio', 1);
+        $previewMaxWidth = (int) $this->params->get('preview_max_width', 480);
+        if ($previewMaxWidth < 200 || $previewMaxWidth > 1600) {
+            $previewMaxWidth = 480;
+        }
+
+        return [
+            'ratios'          => $ratios,
+            'allowCustom'     => $allowCustom,
+            'previewMaxWidth' => $previewMaxWidth,
+        ];
     }
 }

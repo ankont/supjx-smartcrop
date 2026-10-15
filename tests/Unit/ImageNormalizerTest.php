@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace SuperSoftJx\Plugin\Content\SmartCrop\Tests\Unit;
+namespace SuperSoft\Plugin\Content\SmartCrop\Tests\Unit;
 
-use SuperSoftJx\Plugin\Content\SmartCrop\Service\ImageNormalizer;
+use SuperSoft\Plugin\Content\SmartCrop\Service\ImageNormalizer;
 
 final class ImageNormalizerTest
 {

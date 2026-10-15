@@ -4,12 +4,12 @@
     <author>SuperSoft — Kontarinis Andreas</author>
     <authorEmail>ankont@sch.gr</authorEmail>
     <authorUrl>https://superor.wordpress.com/</authorUrl>
-    <creationDate>2026-10-05</creationDate>
+    <creationDate>2026-10-15</creationDate>
     <copyright>© 2026 SuperSoft — Kontarinis Andreas</copyright>
     <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
-    <version>1.0.0</version>
+    <version>1.4.0</version>
     <description>PLG_CONTENT_SMARTCROP_XML_DESCRIPTION</description>
-    <namespace path="src">SuperSoftJx\Plugin\Content\SmartCrop</namespace>
+    <namespace path="src">SuperSoft\Plugin\Content\SmartCrop</namespace>
 
     <files>
         <filename plugin="smartcrop">smartcrop.xml</filename>
@@ -34,25 +34,51 @@
         <fields name="params">
             <fieldset name="basic">
                 <field
-                    name="ratio_width"
-                    type="number"
-                    label="PLG_CONTENT_SMARTCROP_PARAM_RATIO_WIDTH_LABEL"
-                    description="PLG_CONTENT_SMARTCROP_PARAM_RATIO_WIDTH_DESC"
-                    default="4"
-                    min="1"
-                    step="1"
-                    required="true"
-                />
+                    name="supported_ratios"
+                    type="subform"
+                    label="PLG_CONTENT_SMARTCROP_PARAM_SUPPORTED_RATIOS_LABEL"
+                    description="PLG_CONTENT_SMARTCROP_PARAM_SUPPORTED_RATIOS_DESC"
+                    layout="joomla.form.field.subform.repeatable-table"
+                    multiple="true"
+                    groupByFieldset="false"
+                    default='{"supported_ratios0":{"label":"Πλαίσιο άρθρου","width":"4","height":"3"},"supported_ratios1":{"label":"Hero Banner","width":"16","height":"9"},"supported_ratios2":{"label":"Τετράγωνο","width":"1","height":"1"}}'
+                >
+                    <form>
+                        <field
+                            name="label"
+                            type="text"
+                            label="PLG_CONTENT_SMARTCROP_PARAM_RATIO_NAME_LABEL"
+                            required="true"
+                        />
+                        <field
+                            name="width"
+                            type="number"
+                            label="PLG_CONTENT_SMARTCROP_PARAM_RATIO_WIDTH_LABEL"
+                            min="1"
+                            step="1"
+                            required="true"
+                        />
+                        <field
+                            name="height"
+                            type="number"
+                            label="PLG_CONTENT_SMARTCROP_PARAM_RATIO_HEIGHT_LABEL"
+                            min="1"
+                            step="1"
+                            required="true"
+                        />
+                    </form>
+                </field>
                 <field
-                    name="ratio_height"
-                    type="number"
-                    label="PLG_CONTENT_SMARTCROP_PARAM_RATIO_HEIGHT_LABEL"
-                    description="PLG_CONTENT_SMARTCROP_PARAM_RATIO_HEIGHT_DESC"
-                    default="3"
-                    min="1"
-                    step="1"
-                    required="true"
-                />
+                    name="allow_custom_ratio"
+                    type="radio"
+                    label="PLG_CONTENT_SMARTCROP_PARAM_ALLOW_CUSTOM_LABEL"
+                    description="PLG_CONTENT_SMARTCROP_PARAM_ALLOW_CUSTOM_DESC"
+                    layout="joomla.form.field.radio.switcher"
+                    default="1"
+                >
+                    <option value="1">JYES</option>
+                    <option value="0">JNO</option>
+                </field>
                 <field
                     name="preview_max_width"
                     type="number"
