@@ -8,16 +8,18 @@ require_once __DIR__ . '/Unit/CropValidatorTest.php';
 require_once __DIR__ . '/Unit/VisualResolverTest.php';
 require_once __DIR__ . '/Unit/SmartCropHelperTest.php';
 require_once __DIR__ . '/Integration/FormAndStorageTest.php';
+require_once __DIR__ . '/Integration/SmartBrowserPresentationContractTest.php';
 
 use SuperSoft\Plugin\Content\SmartCrop\Tests\Unit\ImageNormalizerTest;
 use SuperSoft\Plugin\Content\SmartCrop\Tests\Unit\CropValidatorTest;
 use SuperSoft\Plugin\Content\SmartCrop\Tests\Unit\VisualResolverTest;
 use SuperSoft\Plugin\Content\SmartCrop\Tests\Unit\SmartCropHelperTest;
 use SuperSoft\Plugin\Content\SmartCrop\Tests\Integration\FormAndStorageTest;
+use SuperSoft\Plugin\Content\SmartCrop\Tests\Integration\SmartBrowserPresentationContractTest;
 
 echo "============================================================\n";
 echo "SuperSoft SmartCrop (plg_content_smartcrop) - Test Suite\n";
-echo "Target: Joomla 5.4.x / 6.x | Version: 1.4.0\n";
+echo "Target: Joomla 5.4.x / 6.x | Version: 2.0.0\n";
 echo "============================================================\n\n";
 
 $suites = [
@@ -26,6 +28,7 @@ $suites = [
     'Effective Visual Resolution & Fallback' => new VisualResolverTest(),
     'Public Template API & CSS Presentation' => new SmartCropHelperTest(),
     'Form Injection & Article Storage (JSON)'=> new FormAndStorageTest(),
+    'SmartBrowser Image Presentation Contract'=> new SmartBrowserPresentationContractTest(),
 ];
 
 $passedSuites = 0;

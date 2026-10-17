@@ -85,8 +85,9 @@ final class SmartCropHelper
         }
 
         $cropParam = (string) $queryParams['crop'];
-        $coords = explode(',', $cropParam);
-        if (count($coords) !== 4) {
+        $normalizedCropParam = (string) preg_replace('/(\d)-/', '$1,', trim($cropParam));
+        $coords = preg_split('/[,_~]+/', $normalizedCropParam) ?: [];
+        if (count($coords) !== 4 || !is_numeric($coords[0]) || !is_numeric($coords[1]) || !is_numeric($coords[2]) || !is_numeric($coords[3])) {
             return null;
         }
 
@@ -99,7 +100,7 @@ final class SmartCropHelper
         $ratioW = 4.0;
         $ratioH = 3.0;
         if (!empty($queryParams['ratio'])) {
-            $ratioParts = explode(':', str_replace(['x', 'X', '/'], ':', (string) $queryParams['ratio']));
+            $ratioParts = explode(':', str_replace(['x', 'X', '/', '_'], ':', (string) $queryParams['ratio']));
             if (count($ratioParts) === 2 && (float) $ratioParts[0] > 0 && (float) $ratioParts[1] > 0) {
                 $ratioW = (float) $ratioParts[0];
                 $ratioH = (float) $ratioParts[1];
@@ -488,9 +489,11 @@ final class SmartCropHelper
             $payload = $payload['usage']['ext.smartcrop.crop'];
         }
 
-        // 3. Resolve potential Selection Address compound alias (e.g. crop=c with c.coords, c.ratio, c.src, c.zoom)
+        // 3. Resolve potential Selection Address compound alias (e.g. smartcrop=sc or crop=c with .coords, .ratio, .src, .zoom)
         $alias = null;
-        if (isset($payload['crop']) && is_string($payload['crop']) && !str_contains($payload['crop'], ',') && !str_starts_with($payload['crop'], '{')) {
+        if (isset($payload['smartcrop']) && is_string($payload['smartcrop']) && preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $payload['smartcrop']) && $payload['smartcrop'] !== 'original') {
+            $alias = $payload['smartcrop'];
+        } elseif (isset($payload['crop']) && is_string($payload['crop']) && preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $payload['crop']) && $payload['crop'] !== 'original') {
             $alias = $payload['crop'];
         }
 
@@ -499,12 +502,13 @@ final class SmartCropHelper
             $cropRaw = $payload[$alias . '.coords'] ?? $payload[$alias . '_coords'] ?? null;
         }
         if ($cropRaw === null) {
-            $cropRaw = $payload['crop'] ?? $payload['coords'] ?? $payload['c.coords'] ?? $payload['c_coords'] ?? null;
+            $cropRaw = $payload['crop'] ?? $payload['coords'] ?? $payload['sc.coords'] ?? $payload['sc_coords'] ?? $payload['c.coords'] ?? $payload['c_coords'] ?? null;
         }
 
         if (is_string($cropRaw)) {
-            $coords = explode(',', $cropRaw);
-            if (count($coords) === 4) {
+            $normalizedCropRaw = (string) preg_replace('/(\d)-/', '$1,', trim($cropRaw));
+            $coords = preg_split('/[,_~]+/', $normalizedCropRaw) ?: [];
+            if (count($coords) === 4 && is_numeric($coords[0]) && is_numeric($coords[1]) && is_numeric($coords[2]) && is_numeric($coords[3])) {
                 $cropRaw = [
                     'x'      => (float) $coords[0],
                     'y'      => (float) $coords[1],
@@ -524,12 +528,25 @@ final class SmartCropHelper
             $expectedSource = $payload[$alias . '.src'] ?? $payload[$alias . '_src'] ?? $payload[$alias . '.source'] ?? '';
         }
         if ($expectedSource === '') {
-            $expectedSource = $payload['source'] ?? $payload['src'] ?? $payload['c.src'] ?? $payload['c_src'] ?? '';
+            $expectedSource = $payload['source'] ?? $payload['src'] ?? $payload['sc.src'] ?? $payload['sc_src'] ?? $payload['c.src'] ?? $payload['c_src'] ?? '';
+        }
+        if ($expectedSource === '' && is_string($cropMetadata)) {
+            $trimmedMeta = trim($cropMetadata);
+            $beforeQuery = preg_split('/[?#]/', $trimmedMeta, 2)[0] ?? '';
+            $isImageUri = str_contains($trimmedMeta, '#joomlaImage://')
+                || str_starts_with(strtolower($trimmedMeta), 'file:')
+                || ($beforeQuery !== '' && !str_starts_with($beforeQuery, '{') && !str_contains($beforeQuery, '=') && !str_contains($beforeQuery, ':') && (str_contains($beforeQuery, '/') || str_contains($beforeQuery, '.')));
+            if ($isImageUri) {
+                $uriCandidateSource = ImageNormalizer::normalize($trimmedMeta);
+                if ($uriCandidateSource !== '' && !str_contains($uriCandidateSource, ':')) {
+                    $expectedSource = $uriCandidateSource;
+                }
+            }
         }
         if (is_string($expectedSource) && trim($expectedSource) !== '') {
             $normExpected = ImageNormalizer::normalize($expectedSource);
             if ($normExpected !== '' && !ImageNormalizer::matches($normFinal, $normExpected)) {
-                // Source mismatch: Intro Image was changed! Do not apply stale crop to new image.
+                // Source mismatch: image was changed or overridden! Do not apply stale crop to a different image.
                 return null;
             }
         }
@@ -542,13 +559,13 @@ final class SmartCropHelper
             $ratioRaw = $payload[$alias . '.ratio'] ?? $payload[$alias . '_ratio'] ?? null;
         }
         if ($ratioRaw === null) {
-            $ratioRaw = $payload['ratio'] ?? $payload['c.ratio'] ?? $payload['c_ratio'] ?? null;
+            $ratioRaw = $payload['ratio'] ?? $payload['sc.ratio'] ?? $payload['sc_ratio'] ?? $payload['c.ratio'] ?? $payload['c_ratio'] ?? null;
         }
         if (is_array($ratioRaw) && isset($ratioRaw['width'], $ratioRaw['height'])) {
             $ratioW = max(0.01, (float) $ratioRaw['width']);
             $ratioH = max(0.01, (float) $ratioRaw['height']);
-        } elseif (is_string($ratioRaw) && str_contains($ratioRaw, ':')) {
-            $rParts = explode(':', $ratioRaw);
+        } elseif (is_string($ratioRaw) && (str_contains($ratioRaw, ':') || str_contains($ratioRaw, '/') || stripos($ratioRaw, 'x') !== false || str_contains($ratioRaw, '_'))) {
+            $rParts = array_map('trim', explode(':', str_replace(['x', 'X', '/', '_'], ':', $ratioRaw)));
             if (count($rParts) === 2 && (float) $rParts[0] > 0 && (float) $rParts[1] > 0) {
                 $ratioW = (float) $rParts[0];
                 $ratioH = (float) $rParts[1];
@@ -569,7 +586,7 @@ final class SmartCropHelper
             $zoomRaw = $payload[$alias . '.zoom'] ?? $payload[$alias . '_zoom'] ?? null;
         }
         if ($zoomRaw === null) {
-            $zoomRaw = $payload['zoom'] ?? $payload['c.zoom'] ?? $payload['c_zoom'] ?? null;
+            $zoomRaw = $payload['zoom'] ?? $payload['sc.zoom'] ?? $payload['sc_zoom'] ?? $payload['c.zoom'] ?? $payload['c_zoom'] ?? null;
         }
         if (is_numeric($zoomRaw)) {
             $zoom = max(0.05, min(5.0, (float) $zoomRaw));
@@ -953,5 +970,431 @@ final class SmartCropHelper
         } catch (Throwable) {
             return null;
         }
+    }
+
+    /**
+     * Resolves SmartCrop presentation from a SmartBrowser Image Presentation context.
+     *
+     * Supports all SmartCrop storage and override formats:
+     * - Extension usage/metadata (`ext.smartcrop.crop`, `smartcrop.crop`)
+     * - Native Joomla `#joomlaImage://...&crop=...` URIs
+     * - Thumbnail overrides (`visual.thumbnailOverride` and compound addresses)
+     * - Selection Address codecs (`smartcrop=sc` and `crop=c`)
+     * - Resolved image / indigenous resource `imageCrop` and legacy article `images` JSON
+     *
+     * Verifies source identity against the final resolved image so stale crops or
+     * indigenous crops do not leak onto a changed image or different thumbnail override.
+     *
+     * @param   array        $context      Context array from onSmartBrowserPrepareImagePresentation
+     * @param   string|null  $domImageSrc  Optional fallback src attribute from the target <img> element
+     *
+     * @return  array|null   Presentation dictionary or null if no matching crop applies
+     */
+    public static function resolveSmartBrowserImagePresentation(array $context, ?string $domImageSrc = null): ?array
+    {
+        $resource  = is_object($context['resource'] ?? null) ? (array) $context['resource'] : (is_array($context['resource'] ?? null) ? $context['resource'] : []);
+        $selection = is_object($context['selection'] ?? null) ? (array) $context['selection'] : (is_array($context['selection'] ?? null) ? $context['selection'] : []);
+        $usage     = is_object($context['usage'] ?? null) ? (array) $context['usage'] : (is_array($context['usage'] ?? null) ? $context['usage'] : []);
+
+        if (empty($usage)) {
+            if (is_array($selection['usage'] ?? null) || is_object($selection['usage'] ?? null)) {
+                $usage = (array) $selection['usage'];
+            } elseif (is_array($resource['usage'] ?? null) || is_object($resource['usage'] ?? null)) {
+                $usage = (array) $resource['usage'];
+            }
+        }
+
+        $contextMeta   = is_object($context['metadata'] ?? null) ? (array) $context['metadata'] : (is_array($context['metadata'] ?? null) ? $context['metadata'] : []);
+        $selectionMeta = is_object($selection['metadata'] ?? null) ? (array) $selection['metadata'] : (is_array($selection['metadata'] ?? null) ? $selection['metadata'] : []);
+        $resMeta       = is_object($resource['metadata'] ?? null) ? (array) $resource['metadata'] : (is_array($resource['metadata'] ?? null) ? $resource['metadata'] : []);
+
+        $resolvedImage = $context['resolvedImage'] ?? ($resource['effectiveThumbnailResource'] ?? null);
+        $resImgArr     = is_object($resolvedImage) ? (array) $resolvedImage : (is_array($resolvedImage) ? $resolvedImage : []);
+        $resImgMeta    = is_object($resImgArr['metadata'] ?? null) ? (array) $resImgArr['metadata'] : (is_array($resImgArr['metadata'] ?? null) ? $resImgArr['metadata'] : []);
+
+        $imageAddress = is_string($context['imageAddress'] ?? null) ? trim($context['imageAddress']) : '';
+        $imageUrl     = is_string($context['imageUrl'] ?? null) ? trim($context['imageUrl']) : '';
+        $domSrc       = is_string($domImageSrc) ? trim($domImageSrc) : '';
+
+        $explicitlyCleared = (array_key_exists('ext.smartcrop.crop', $usage) && empty($usage['ext.smartcrop.crop']))
+            || (array_key_exists('smartcrop.crop', $usage) && empty($usage['smartcrop.crop']))
+            || (array_key_exists('ext.smartcrop.crop', $contextMeta) && empty($contextMeta['ext.smartcrop.crop']))
+            || (array_key_exists('smartcrop.crop', $contextMeta) && empty($contextMeta['smartcrop.crop']));
+
+        $extSelectionAddress = is_object($usage['ext.selectionAddress'] ?? null)
+            ? (array) $usage['ext.selectionAddress']
+            : (is_array($usage['ext.selectionAddress'] ?? null) ? $usage['ext.selectionAddress'] : []);
+        $compounds = is_object($extSelectionAddress['compounds'] ?? null)
+            ? (array) $extSelectionAddress['compounds']
+            : (is_array($extSelectionAddress['compounds'] ?? null) ? $extSelectionAddress['compounds'] : []);
+
+        $rawThumbOverride = $usage['visual.thumbnailOverride'] ?? ($compounds['visual.thumbnailOverride'] ?? null);
+        $overrideImage = '';
+        if (is_string($rawThumbOverride)) {
+            $overrideImage = trim($rawThumbOverride);
+        } elseif (is_array($rawThumbOverride) || is_object($rawThumbOverride)) {
+            $ovArr = (array) $rawThumbOverride;
+            $overrideImage = trim((string) ($ovArr['image'] ?? $ovArr['url'] ?? $ovArr['id'] ?? ''));
+        }
+        $hasThumbnailOverride = $overrideImage !== '';
+
+        $resolvedImgSource = trim((string) (
+            $resImgArr['image']
+            ?? $resImgArr['thumbnail']
+            ?? $resImgMeta['image']
+            ?? $resImgMeta['thumbnail']
+            ?? $resImgMeta['url']
+            ?? $resImgArr['url']
+            ?? (($resImgArr['type'] ?? '') === 'image' ? ($resImgArr['id'] ?? '') : '')
+        ));
+
+        $imagesData = !empty($resource) ? self::extractImagesData($resource) : null;
+        $indigenousSource = trim((string) (
+            $resource['image']
+            ?? $resMeta['image']
+            ?? ($imagesData['image_intro'] ?? null)
+            ?? ($imagesData['image_fulltext'] ?? null)
+            ?? (!$hasThumbnailOverride ? (
+                $resource['thumbnail']
+                ?? $resMeta['thumbnail']
+                ?? $resMeta['poster']
+                ?? $resMeta['url']
+                ?? $resource['url']
+                ?? (($resource['type'] ?? '') === 'image' ? ($resource['id'] ?? '') : '')
+            ) : '')
+        ));
+
+        $isImageLikeAddress = static function (string $addr): bool {
+            if ($addr === '') {
+                return false;
+            }
+            $beforeQuery = preg_split('/[?#]/', $addr, 2)[0] ?? '';
+            return str_contains($addr, '#joomlaImage://')
+                || str_starts_with(strtolower($addr), 'file:')
+                || (!str_contains($beforeQuery, ':') && (str_contains($beforeQuery, '/') || str_contains($beforeQuery, '.')));
+        };
+
+        // Resolve final target image identity in priority order
+        $finalImageCandidates = [
+            $imageUrl,
+            $resolvedImgSource,
+            $isImageLikeAddress($overrideImage) ? $overrideImage : '',
+            $isImageLikeAddress($imageAddress) ? $imageAddress : '',
+            $domSrc,
+            (string) ($resource['effectiveThumbnail'] ?? ''),
+            $indigenousSource,
+        ];
+
+        $finalImage = '';
+        foreach ($finalImageCandidates as $fc) {
+            if ($fc !== '' && ImageNormalizer::normalize($fc) !== '') {
+                $finalImage = $fc;
+                break;
+            }
+        }
+
+        if ($finalImage === '') {
+            return null;
+        }
+
+        if (!$hasThumbnailOverride && $indigenousSource !== '' && !ImageNormalizer::matches($indigenousSource, $finalImage)) {
+            $hasThumbnailOverride = true;
+        }
+
+        $hasUriCropParams = static function (string $val): bool {
+            return str_contains($val, 'crop=')
+                || str_contains($val, '.coords=')
+                || str_contains($val, '_coords=');
+        };
+
+        // 1. Explicit extension metadata (ext.smartcrop.crop / smartcrop.crop)
+        $extCandidates = [
+            $usage['ext.smartcrop.crop'] ?? null,
+            $usage['smartcrop.crop'] ?? null,
+            $contextMeta['ext.smartcrop.crop'] ?? null,
+            $contextMeta['smartcrop.crop'] ?? null,
+            $selectionMeta['ext.smartcrop.crop'] ?? null,
+            $selectionMeta['smartcrop.crop'] ?? null,
+        ];
+        foreach ($extCandidates as $cand) {
+            if (!empty($cand)) {
+                $res = self::resolveCropPresentation($finalImage, $cand);
+                if ($res !== null) {
+                    return $res;
+                }
+            }
+        }
+
+        // 2. Direct resolved imageAddress / imageUrl / DOM src containing crop parameters
+        foreach ([$imageAddress, $imageUrl, $domSrc] as $uriCand) {
+            if ($uriCand !== '' && $hasUriCropParams($uriCand)) {
+                $res = self::resolveCropPresentation($finalImage, $uriCand);
+                if ($res !== null) {
+                    return $res;
+                }
+            }
+        }
+
+        // 3. Thumbnail override compounds & values
+        $overrideCandidates = [
+            $compounds['visual.thumbnailOverride'] ?? null,
+            $usage['visual.thumbnailOverride'] ?? null,
+            $resource['effectiveImageAddress'] ?? null,
+        ];
+        foreach ($compounds as $compVal) {
+            if (is_string($compVal) && $hasUriCropParams($compVal)) {
+                $overrideCandidates[] = $compVal;
+            }
+        }
+        foreach ($overrideCandidates as $ovCand) {
+            if (empty($ovCand)) {
+                continue;
+            }
+            if (is_array($ovCand) || is_object($ovCand)) {
+                $res = self::resolveCropPresentation($finalImage, (array) $ovCand);
+                if ($res !== null) {
+                    return $res;
+                }
+            } elseif (is_string($ovCand) && ($hasUriCropParams($ovCand) || str_starts_with(trim($ovCand), '{'))) {
+                $res = self::resolveCropPresentation($finalImage, $ovCand);
+                if ($res !== null) {
+                    return $res;
+                }
+            }
+        }
+
+        // 4. Selection Address (smartcrop=sc or crop=c)
+        $addressCandidates = [
+            $context['address'] ?? null,
+            $selection['address'] ?? null,
+            $usage['ext.address'] ?? null,
+        ];
+        foreach ($addressCandidates as $addrCand) {
+            if (is_string($addrCand) && $addrCand !== '' && $hasUriCropParams($addrCand)) {
+                $res = self::resolveCropPresentation($finalImage, $addrCand);
+                if ($res !== null) {
+                    return $res;
+                }
+            }
+        }
+
+        if ($explicitlyCleared) {
+            return null;
+        }
+
+        // 5. Resolved image resource (effectiveThumbnailResource) crop metadata
+        if (!empty($resImgArr)) {
+            $resImgCropCandidates = [
+                $resImgArr['imageCrop'] ?? null,
+                $resImgMeta['imageCrop'] ?? null,
+                $resImgArr['crop'] ?? null,
+                $resImgMeta['crop'] ?? null,
+                $resImgArr['smartcrop'] ?? null,
+                $resImgMeta['smartcrop'] ?? null,
+            ];
+            foreach ($resImgCropCandidates as $cand) {
+                if (empty($cand)) {
+                    continue;
+                }
+                if (is_object($cand)) {
+                    $cand = (array) $cand;
+                }
+                if (is_array($cand) && empty($cand['source']) && $resolvedImgSource !== '') {
+                    $cand['source'] = $resolvedImgSource;
+                }
+                $res = self::resolveCropPresentation($finalImage, $cand);
+                if ($res !== null) {
+                    return $res;
+                }
+            }
+
+            foreach ([$resImgArr['image'] ?? '', $resImgMeta['image'] ?? '', $resImgArr['thumbnail'] ?? '', $resImgMeta['thumbnail'] ?? ''] as $strCand) {
+                if (is_string($strCand) && $strCand !== '' && $hasUriCropParams($strCand)) {
+                    $res = self::resolveCropPresentation($finalImage, $strCand);
+                    if ($res !== null) {
+                        return $res;
+                    }
+                }
+            }
+
+            $resImgImagesData = self::extractImagesData($resImgArr);
+            if ($resImgImagesData !== null) {
+                foreach ([$resImgImagesData['image_intro'] ?? '', $resImgImagesData['image_fulltext'] ?? ''] as $artUri) {
+                    if (is_string($artUri) && $artUri !== '' && $hasUriCropParams($artUri)) {
+                        $res = self::resolveCropPresentation($finalImage, $artUri);
+                        if ($res !== null) {
+                            return $res;
+                        }
+                    }
+                }
+                $legacyResolvedCrop = self::getCrop($resImgArr, $finalImage);
+                if ($legacyResolvedCrop !== null) {
+                    $res = self::resolveCropPresentation($finalImage, $legacyResolvedCrop);
+                    if ($res !== null) {
+                        return $res;
+                    }
+                }
+            }
+        }
+
+        // 6. Indigenous resource crop metadata (only if matching finalImage and not overridden by a different image)
+        if (!empty($resource)) {
+            $indigenousCropCandidates = [
+                $resource['imageCrop'] ?? null,
+                $resMeta['imageCrop'] ?? null,
+                $resource['crop'] ?? null,
+                $resMeta['crop'] ?? null,
+                $resource['smartcrop'] ?? null,
+                $resMeta['smartcrop'] ?? null,
+            ];
+            foreach ($indigenousCropCandidates as $cand) {
+                if (empty($cand)) {
+                    continue;
+                }
+                if (is_string($cand) && str_starts_with(trim($cand), '{')) {
+                    $decoded = json_decode(trim($cand), true);
+                    if (is_array($decoded)) {
+                        $cand = $decoded;
+                    }
+                } elseif (is_object($cand)) {
+                    $cand = (array) $cand;
+                }
+                if (is_array($cand)) {
+                    if (empty($cand['source']) && empty($cand['src'])) {
+                        if ($indigenousSource !== '') {
+                            $cand['source'] = $indigenousSource;
+                        } elseif ($hasThumbnailOverride) {
+                            continue;
+                        }
+                    }
+                }
+                $res = self::resolveCropPresentation($finalImage, $cand);
+                if ($res !== null) {
+                    return $res;
+                }
+            }
+
+            $indigenousUriCandidates = [
+                $resource['image'] ?? '',
+                $resMeta['image'] ?? '',
+                $imagesData['image_intro'] ?? '',
+                $imagesData['image_fulltext'] ?? '',
+            ];
+            if (!$hasThumbnailOverride) {
+                $indigenousUriCandidates[] = $resource['thumbnail'] ?? '';
+                $indigenousUriCandidates[] = $resMeta['thumbnail'] ?? '';
+            }
+            foreach ($indigenousUriCandidates as $uriCand) {
+                if (is_string($uriCand) && $uriCand !== '' && $hasUriCropParams($uriCand)) {
+                    $res = self::resolveCropPresentation($finalImage, $uriCand);
+                    if ($res !== null) {
+                        return $res;
+                    }
+                }
+            }
+
+            $legacyCrop = self::getCrop($resource, $finalImage);
+            if ($legacyCrop !== null) {
+                $res = self::resolveCropPresentation($finalImage, $legacyCrop);
+                if ($res !== null) {
+                    return $res;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Applies SmartCrop presentation styles directly to a DOMElement (`<img>`)
+     * for the `onSmartBrowserPrepareImagePresentation` contract, preserving
+     * any unrelated inline CSS properties on the image element.
+     *
+     * @param   \DOMElement  $image    The primary `<img>` DOMElement
+     * @param   array        $context  The presentation context from SmartBrowser
+     *
+     * @return  bool         True if crop presentation styles were applied, false otherwise
+     */
+    public static function applySmartBrowserImagePresentation(\DOMElement $image, array $context): bool
+    {
+        $domSrc = $image->hasAttribute('src') ? $image->getAttribute('src') : null;
+        $presentation = self::resolveSmartBrowserImagePresentation($context, $domSrc);
+        if ($presentation === null) {
+            return false;
+        }
+
+        $managedStyles = [
+            'aspect-ratio'   => (string) ($presentation['ratio']['aspect_ratio'] ?? '4 / 3'),
+            'position'       => 'absolute',
+            'left'           => ($presentation['values']['left_pct'] ?? 0) . '%',
+            'top'            => ($presentation['values']['top_pct'] ?? 0) . '%',
+            'width'          => ($presentation['values']['width_pct'] ?? 100) . '%',
+            'height'         => ($presentation['values']['height_pct'] ?? 100) . '%',
+            'max-width'      => 'none',
+            'max-height'     => 'none',
+            'object-fit'     => 'fill',
+            'pointer-events' => 'none',
+        ];
+
+        $existingStyle = $image->hasAttribute('style') ? $image->getAttribute('style') : '';
+        $mergedStyle   = self::mergeInlineStyles($existingStyle, $managedStyles);
+        $image->setAttribute('style', $mergedStyle);
+
+        return true;
+    }
+
+    /**
+     * Merges managed CSS declarations into an existing inline style string while
+     * preserving any unrelated CSS properties in their original order.
+     *
+     * @param   string                 $existingStyle  Existing `style` attribute value
+     * @param   array<string, string>  $managedStyles  CSS property => value pairs to apply
+     *
+     * @return  string
+     */
+    public static function mergeInlineStyles(string $existingStyle, array $managedStyles): string
+    {
+        $declarations = [];
+
+        foreach (explode(';', $existingStyle) as $chunk) {
+            $chunk = trim($chunk);
+            if ($chunk === '') {
+                continue;
+            }
+            $colonPos = strpos($chunk, ':');
+            if ($colonPos === false) {
+                continue;
+            }
+            $prop = trim(substr($chunk, 0, $colonPos));
+            $val  = trim(substr($chunk, $colonPos + 1));
+            if ($prop !== '' && $val !== '') {
+                $declarations[strtolower($prop)] = [
+                    'name'  => $prop,
+                    'value' => $val,
+                ];
+            }
+        }
+
+        foreach ($managedStyles as $prop => $val) {
+            $prop = trim((string) $prop);
+            $val  = trim((string) $val);
+            if ($prop !== '' && $val !== '') {
+                $declarations[strtolower($prop)] = [
+                    'name'  => $prop,
+                    'value' => $val,
+                ];
+            }
+        }
+
+        if (empty($declarations)) {
+            return '';
+        }
+
+        $parts = [];
+        foreach ($declarations as $decl) {
+            $parts[] = $decl['name'] . ': ' . $decl['value'];
+        }
+
+        return implode('; ', $parts) . ';';
     }
 }

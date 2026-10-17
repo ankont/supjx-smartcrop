@@ -56,6 +56,7 @@ final class ImageNormalizer
         }
 
         $raw = trim(str_replace('\\', '/', $raw));
+        $raw = preg_replace('#^file:(?:com_media/[^:]+:)?#i', '', $raw);
         $raw = preg_replace('#^local-[^/:]+[/:]*#i', 'images/', $raw);
         if ($raw === '') {
             return '';

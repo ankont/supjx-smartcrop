@@ -1,6 +1,6 @@
 /**
  * SuperSoft SmartCrop - Editor Stylesheet
- * Version 1.4.0
+ * Version 2.0.0
  */
 
 /* Crop Button inside .input-group */
@@ -78,7 +78,8 @@ joomla-field-media .field-media-preview,
 
 /* Base Preview Frame */
 joomla-field-media .smartcrop-preview-frame,
-.smartcrop-preview-frame {
+.field-media-preview .smartcrop-preview-frame,
+.resource-visual-overlay .smartcrop-preview-frame {
     position: relative !important;
     display: inline-flex !important;
     align-items: center !important;
@@ -96,7 +97,8 @@ joomla-field-media .smartcrop-preview-frame,
 
 /* Cropped Preview Frame (overflow: visible allows ghost to extend outside frame) */
 joomla-field-media .smartcrop-preview-frame.is-cropped,
-.smartcrop-preview-frame.is-cropped {
+.field-media-preview .smartcrop-preview-frame.is-cropped,
+.resource-visual-overlay .smartcrop-preview-frame.is-cropped {
     overflow: visible !important;
     aspect-ratio: 4 / 3 !important;
     box-shadow: none !important;
@@ -105,7 +107,8 @@ joomla-field-media .smartcrop-preview-frame.is-cropped,
 
 /* Un-cropped Preview Frame: no clipping, no aspect ratio */
 joomla-field-media .smartcrop-preview-frame:not(.is-cropped),
-.smartcrop-preview-frame:not(.is-cropped) {
+.field-media-preview .smartcrop-preview-frame:not(.is-cropped),
+.resource-visual-overlay .smartcrop-preview-frame:not(.is-cropped) {
     overflow: visible !important;
     box-shadow: none !important;
 }
@@ -136,7 +139,8 @@ joomla-field-media .smartcrop-preview-frame:not(.is-cropped),
 
 /* Cropped image inside frame */
 joomla-field-media .smartcrop-preview-frame.is-cropped img:not(.smartcrop-preview-ghost),
-.smartcrop-preview-frame.is-cropped img:not(.smartcrop-preview-ghost) {
+.field-media-preview .smartcrop-preview-frame.is-cropped img:not(.smartcrop-preview-ghost),
+.resource-visual-overlay .smartcrop-preview-frame.is-cropped img:not(.smartcrop-preview-ghost) {
     position: absolute !important;
     max-width: none !important;
     max-height: none !important;
@@ -157,8 +161,8 @@ joomla-field-media .smartcrop-preview-frame.is-cropped img:not(.smartcrop-previe
     border-radius: 4px;
 }
 
-/* SmartCrop Overlay Button inside Preview */
-.smartcrop-preview-btn {
+/* SmartCrop Overlay Button inside standalone Joomla Media Field Preview (outside SmartBrowser actionsContainer) */
+:where(.field-media-preview, .smartcrop-preview-frame, .resource-visual-overlay) > .smartcrop-preview-btn {
     position: absolute !important;
     top: 6px !important;
     right: 6px !important;
@@ -178,8 +182,8 @@ joomla-field-media .smartcrop-preview-frame.is-cropped img:not(.smartcrop-previe
     transition: opacity 0.2s ease, transform 0.15s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.15s ease !important;
 }
 
-/* Uncropped state: dark translucent pill, always visible and clickable */
-.smartcrop-preview-btn:not(.is-cropped) {
+/* Uncropped state (standalone media field preview) */
+:where(.field-media-preview, .smartcrop-preview-frame, .resource-visual-overlay) > .smartcrop-preview-btn:not(.is-cropped) {
     opacity: 0.85 !important;
     pointer-events: auto !important;
     background: rgba(33, 37, 41, 0.82) !important;
@@ -188,17 +192,17 @@ joomla-field-media .smartcrop-preview-frame.is-cropped img:not(.smartcrop-previe
     transform: none !important;
 }
 
-.smartcrop-preview-btn:not(.is-cropped):hover,
-.smartcrop-preview-btn:not(.is-cropped):focus-visible {
+:where(.field-media-preview, .smartcrop-preview-frame, .resource-visual-overlay) > .smartcrop-preview-btn:not(.is-cropped):hover,
+:where(.field-media-preview, .smartcrop-preview-frame, .resource-visual-overlay) > .smartcrop-preview-btn:not(.is-cropped):focus-visible {
     opacity: 1 !important;
     background: #0d6efd !important;
     border-color: #0d6efd !important;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45) !important;
-    transform: scale(1.05) !important;
+    transform: none !important;
 }
 
-/* Cropped state: green translucent pill, always visible and clickable */
-.smartcrop-preview-btn.is-cropped {
+/* Cropped state (standalone media field preview) */
+:where(.field-media-preview, .smartcrop-preview-frame, .resource-visual-overlay) > .smartcrop-preview-btn.is-cropped {
     opacity: 0.85 !important;
     pointer-events: auto !important;
     background: rgba(25, 135, 84, 0.85) !important;
@@ -207,13 +211,13 @@ joomla-field-media .smartcrop-preview-frame.is-cropped img:not(.smartcrop-previe
     transform: none !important;
 }
 
-.smartcrop-preview-btn.is-cropped:hover,
-.smartcrop-preview-btn.is-cropped:focus-visible {
+:where(.field-media-preview, .smartcrop-preview-frame, .resource-visual-overlay) > .smartcrop-preview-btn.is-cropped:hover,
+:where(.field-media-preview, .smartcrop-preview-frame, .resource-visual-overlay) > .smartcrop-preview-btn.is-cropped:focus-visible {
     opacity: 1 !important;
     background: #198754 !important;
     border-color: #157347 !important;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important;
-    transform: scale(1.05) !important;
+    transform: none !important;
 }
 
 /* Big Picture Ghost Layer: identical zoom & position, overflows frame freely behind clip */
@@ -251,20 +255,25 @@ joomla-field-media:has(.smartcrop-preview-btn:hover),
     position: relative !important;
 }
 
-.resource-lightweight-visual .smartcrop-preview-btn {
-    position: absolute !important;
-    top: 8px !important;
-    right: 8px !important;
-    z-index: 1055 !important;
+/* SmartBrowser Visual Overlay Integration (.resource-visual-overlay) */
+.resource-visual-overlay {
+    pointer-events: none !important;
 }
 
-/* SmartBrowser Visual Overlay Integration (.resource-visual-overlay) */
-.resource-visual-overlay .smartcrop-preview-btn {
-    position: absolute !important;
+.resource-visual-overlay > .smartcrop-preview-btn {
     top: 8px !important;
     right: 8px !important;
-    z-index: 1055 !important;
+    z-index: 1065 !important;
     pointer-events: auto !important;
+}
+
+/* SmartBrowser Unified Action Toolbar Integration (context.actionsContainer):
+   Host toolbar manages button geometry, positioning, sizing, and .selected state. */
+.resource-lightweight-actions .smartcrop-preview-btn,
+.resource-lightweight-preview-action .smartcrop-preview-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .resource-visual-overlay .smartcrop-preview-frame {
@@ -295,7 +304,8 @@ joomla-field-media:has(.smartcrop-preview-btn:hover),
     pointer-events: none !important;
 }
 
-.resource-visual-overlay .smartcrop-preview-ghost {
+.resource-visual-overlay .smartcrop-preview-ghost,
+.smartcrop-preview-ghost {
     position: absolute !important;
     max-width: none !important;
     max-height: none !important;
@@ -305,27 +315,62 @@ joomla-field-media:has(.smartcrop-preview-btn:hover),
     border-radius: 6px !important;
     filter: brightness(0.92) contrast(0.96);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-    transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: opacity 0.2s ease !important;
 }
 
-/* Cropped visual: overflow hidden when normal, overflow visible when revealing ghost */
-.resource-lightweight-visual.is-cropped:not(.is-revealing-ghost) {
+/* Badge layer (resource-node-visual-symbol) must always stack cleanly in front of crop and overlays */
+.resource-lightweight-visual .resource-visual-layer.resource-node-visual-symbol,
+.resource-visual-layer.resource-node-visual-symbol,
+.resource-visual-layer.style-badge,
+.resource-visual-layer.asset-identity,
+.resource-visual-layer.asset-base.style-badge {
+    z-index: 25 !important;
+    pointer-events: none !important;
+}
+
+/* All crop frame preview elements must not block pointer events from action buttons */
+.smartcrop-preview-frame,
+.resource-visual-overlay .smartcrop-preview-frame,
+.smartcrop-preview-clip,
+.resource-visual-overlay .smartcrop-preview-clip,
+.smartcrop-cropped-preview,
+.resource-visual-overlay .smartcrop-cropped-preview {
+    pointer-events: none !important;
+}
+
+/* Cropped visual image layer: overflow hidden when normal */
+.resource-visual-layer.asset-image.has-image-crop,
+.resource-lightweight-visual .resource-visual-layer.asset-image {
     overflow: hidden !important;
 }
 
+/* Reveal Big Picture Ghost: allow containers to overflow freely */
 .smartcrop-preview-frame.is-cropped.is-revealing-ghost,
 .smartcrop-preview-frame.is-cropped:has(.smartcrop-preview-btn:hover),
-.resource-lightweight-visual.is-cropped.is-revealing-ghost,
-.resource-lightweight-visual.is-cropped:has(.smartcrop-preview-btn:hover),
-.resource-lightweight-visual:has(.is-expanded-overlay) {
+.resource-lightweight-visual.is-revealing-ghost,
+.resource-lightweight-visual:has(.is-revealing-ghost),
+.resource-lightweight-visual:has(.smartcrop-preview-btn:hover) {
+    overflow: visible !important;
+    z-index: 1 !important;
+}
+
+.field-media-preview.is-revealing-ghost,
+.field-media-preview:has(.is-revealing-ghost),
+.field-media-preview:has(.smartcrop-preview-btn:hover),
+.resource-lightweight-area.is-revealing-ghost,
+.resource-lightweight-area:has(.is-revealing-ghost),
+.resource-lightweight-area:has(.smartcrop-preview-btn:hover),
+.resource-visual-overlay-layer:has(.is-revealing-ghost),
+.resource-visual-overlay.is-revealing-ghost,
+.resource-visual-overlay:has(.smartcrop-preview-btn:hover),
+.resource-info-preview:has(.is-revealing-ghost),
+.resource-info-preview:has(.smartcrop-preview-btn:hover) {
     z-index: 1050 !important;
     overflow: visible !important;
 }
 
-/* Internal clip wrapper inside resource-lightweight-visual */
-.resource-lightweight-visual.is-cropped .resource-visual-content,
-.resource-lightweight-visual.is-cropped .resource-visual-layer,
-.resource-lightweight-visual.is-cropped .smartcrop-preview-clip {
+/* Internal clip wrapper inside fallback custom frame */
+.smartcrop-preview-frame .smartcrop-preview-clip {
     position: absolute !important;
     inset: 0 !important;
     width: 100% !important;
@@ -333,48 +378,41 @@ joomla-field-media:has(.smartcrop-preview-btn:hover),
     overflow: hidden !important;
     border-radius: 4px !important;
     z-index: 2 !important;
+    pointer-events: none !important;
 }
 
 /* Reveal Big Picture Ghost on scissors / crop button hover */
-.smartcrop-preview-frame.is-cropped.is-revealing-ghost .smartcrop-preview-ghost,
-.smartcrop-preview-frame.is-cropped:has(.smartcrop-preview-btn:hover) .smartcrop-preview-ghost,
-.resource-lightweight-visual.is-cropped.is-revealing-ghost .smartcrop-preview-ghost,
-.resource-lightweight-visual.is-cropped:has(.smartcrop-preview-btn:hover) .smartcrop-preview-ghost,
+.smartcrop-preview-frame.is-revealing-ghost .smartcrop-preview-ghost,
+.smartcrop-preview-frame:has(.smartcrop-preview-btn:hover) .smartcrop-preview-ghost,
+.resource-lightweight-visual.is-revealing-ghost .smartcrop-preview-ghost,
+.resource-lightweight-visual:has(.smartcrop-preview-btn:hover) .smartcrop-preview-ghost,
+.resource-lightweight-area.is-revealing-ghost .smartcrop-preview-ghost,
+.resource-lightweight-area:has(.smartcrop-preview-btn:hover) .smartcrop-preview-ghost,
 .resource-visual-overlay.is-revealing-ghost .smartcrop-preview-ghost,
 .resource-visual-overlay:has(.smartcrop-preview-btn:hover) .smartcrop-preview-ghost,
-.resource-visual-overlay.is-expanded-overlay .smartcrop-preview-ghost,
-.resource-lightweight-visual:has(.is-expanded-overlay) .smartcrop-preview-ghost {
-    opacity: 0.65 !important;
-    z-index: 1051 !important;
+.is-revealing-ghost .smartcrop-preview-ghost {
+    opacity: 0.75 !important;
+    z-index: 1 !important;
 }
 
-/* Highlight crop frame clip container when revealing ghost */
-.smartcrop-preview-frame.is-cropped.is-revealing-ghost .smartcrop-preview-clip,
-.smartcrop-preview-frame.is-cropped:has(.smartcrop-preview-btn:hover) .smartcrop-preview-clip,
-.resource-lightweight-visual.is-cropped.is-revealing-ghost .smartcrop-preview-clip,
-.resource-lightweight-visual.is-cropped:has(.smartcrop-preview-btn:hover) .smartcrop-preview-clip,
-.resource-lightweight-visual.is-cropped.is-revealing-ghost .resource-visual-layer,
-.resource-lightweight-visual.is-cropped:has(.smartcrop-preview-btn:hover) .resource-visual-layer,
-.resource-lightweight-visual.is-cropped.is-revealing-ghost img:not(.smartcrop-preview-ghost),
-.resource-lightweight-visual.is-cropped:has(.smartcrop-preview-btn:hover) img:not(.smartcrop-preview-ghost),
-.resource-visual-overlay.is-revealing-ghost .smartcrop-preview-clip,
-.resource-visual-overlay:has(.smartcrop-preview-btn:hover) .smartcrop-preview-clip,
-.resource-visual-overlay.is-expanded-overlay .smartcrop-preview-clip,
+/* Clean highlight outline when revealing ghost without layout thrashing */
 .resource-lightweight-visual.is-cropped.is-revealing-ghost,
 .resource-lightweight-visual.is-cropped:has(.smartcrop-preview-btn:hover),
-.resource-lightweight-visual.is-cropped:has(.is-expanded-overlay) {
-    box-shadow: 0 0 0 2px #198754, 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+.smartcrop-preview-frame.is-cropped.is-revealing-ghost .smartcrop-preview-clip,
+.smartcrop-preview-frame.is-cropped:has(.smartcrop-preview-btn:hover) .smartcrop-preview-clip {
+    outline: 2px solid #198754 !important;
+    outline-offset: -1px !important;
 }
 
 /* Suppress SmartBrowser action-bar buttons when SmartCrop overlay button is active */
-.resource-lightweight-actions button[title*="SmartCrop"],
-.resource-lightweight-actions button[aria-label*="SmartCrop"],
-.resource-lightweight-actions button:has(.fa-crop-simple),
-.sb-article-image-field .resource-lightweight-actions button:has(.fa-crop-simple),
-.sb-article-image-preview ~ * .resource-lightweight-actions button:has(.fa-crop-simple),
-.sb-native-preview-host ~ * .resource-lightweight-actions button:has(.fa-crop-simple),
-.sb-native-preview-host .resource-lightweight-actions button:has(.fa-crop-simple),
-joomla-field-media .resource-lightweight-actions button:has(.fa-crop-simple) {
+.resource-lightweight-actions button:not(.smartcrop-preview-btn)[title*="SmartCrop"],
+.resource-lightweight-actions button:not(.smartcrop-preview-btn)[aria-label*="SmartCrop"],
+.resource-lightweight-actions button:not(.smartcrop-preview-btn):has(.fa-crop-simple),
+.sb-article-image-field .resource-lightweight-actions button:not(.smartcrop-preview-btn):has(.fa-crop-simple),
+.sb-article-image-preview ~ * .resource-lightweight-actions button:not(.smartcrop-preview-btn):has(.fa-crop-simple),
+.sb-native-preview-host ~ * .resource-lightweight-actions button:not(.smartcrop-preview-btn):has(.fa-crop-simple),
+.sb-native-preview-host .resource-lightweight-actions button:not(.smartcrop-preview-btn):has(.fa-crop-simple),
+joomla-field-media .resource-lightweight-actions button:not(.smartcrop-preview-btn):has(.fa-crop-simple) {
     display: none !important;
 }
 
@@ -403,16 +441,31 @@ joomla-field-media .resource-lightweight-actions button:has(.fa-crop-simple) {
 }
 
 /* Modal Styling (Compact, Zero-Scroll, Standalone overlay) */
+dialog.smartcrop-modal,
 .smartcrop-modal {
     display: none;
+    border: none !important;
+    outline: none !important;
+    margin: 0 !important;
+    padding: 0.75rem !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    color: inherit;
+    box-sizing: border-box !important;
 }
 
+dialog.smartcrop-modal:not([open]):not(.show):not(.smartcrop-modal-visible) {
+    display: none !important;
+}
+
+dialog.smartcrop-modal[open],
 .smartcrop-modal.smartcrop-modal-visible,
 .smartcrop-modal.show {
     display: flex !important;
     align-items: center;
     justify-content: center;
     position: fixed !important;
+    inset: 0 !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
@@ -427,6 +480,10 @@ joomla-field-media .resource-lightweight-actions button:has(.fa-crop-simple) {
     padding: 0.75rem;
     box-sizing: border-box;
     opacity: 1 !important;
+}
+
+dialog.smartcrop-modal::backdrop {
+    background: transparent !important;
 }
 
 .smartcrop-modal.smartcrop-modal-visible .modal-dialog,

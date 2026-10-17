@@ -322,11 +322,30 @@ php tests/run_tests.php
 ```cmd
 build.bat
 ```
-Το αρχείο παράγεται στο: `build/output/plg_content_smartcrop-v1.2.0.zip`.
+Το αρχείο παράγεται στο: `build/output/plg_content_smartcrop-v2.0.0.zip`.
 
 ---
 
 ## 16. Ιστορικό Εκδόσεων (Changelog)
+
+### v2.0.0 (2026-10-17)
+- **Ενσωμάτωση στο Κοινό Image Presentation Contract του SmartBrowser (`4.0.0+`)**:
+  - **PHP Presentation Provider (`onSmartBrowserPrepareImagePresentation`)**: Εφαρμογή του ενεργού κάδρου και της αναλογίας διαστάσεων (`aspect-ratio`, `position`, `left`, `top`, `width`, `height`, `object-fit: fill`) απευθείας στο κύριο `\DOMElement` (`<img>`) που παραδίδει ο host, διατηρώντας ακέραια τα άσχετα inline styles, τα εξωτερικά πλαίσια, τα pins/badges και τα links των custom renderers.
+  - **JavaScript Presentation Provider (`SmartBrowserPicker.registerImagePresentation`)**: Καταχώριση του provider `smartcrop.presentation` με πλήρη δήλωση των διαχειριζόμενων CSS ιδιοτήτων (`styles`), έλεγχο `applies`/`hasChanges`, αυτόματο `reset()` και κλήση `notifyPresentationChange({ reason: 'aspect-ratio' })`.
+  - **Συντονισμός Server/Client (`data-sb-image-presentation="server"`)**: Σεβασμός της server-side παρουσίασης κατά το αρχικό mount ώστε να αποφεύγεται διπλή εφαρμογή, με αυτόματο καθαρισμό του attribute μόλις ο χρήστης τροποποιήσει ή αφαιρέσει το κάδρο.
+- **Unescaped URI & Selection Address Codec Format (`-` και `x`)**:
+  - Οι συντεταγμένες του κάδρου κωδικοποιούνται πλέον με παύλα `-` αντί για κόμμα (π.χ. `0.1000-0.2000-0.5000-0.5000`) και η αναλογία με `x` αντί για άνω-κάτω τελεία (π.χ. `16x9`), εξαλείφοντας την ανάγκη URL-escaping (`%2C`, `%3A`) τόσο στα Joomla `#joomlaImage://` URIs όσο και στα SmartBrowser Selection Addresses (`sc.coords`, `sc.ratio`).
+  - Πλήρης συμβατότητα προς τα πίσω (backward compatibility) στην ανάγνωση όλων των ήδη αποθηκευμένων τιμών με `,` και `:`, καθώς και υποστήριξη αρνητικών συντεταγμένων σε zoom-out (`-0.1000--0.2000-1.2500-1.2500`).
+- **Υποστήριξη Thumbnail Overrides & Cross-Realm (Iframe) Αποθήκευσης**:
+  - Αυτόματος διαχωρισμός μεταξύ της εγγενούς εικόνας ενός resource και ενός ενεργού `visual.thumbnailOverride`, αποτρέποντας τη διαρροή παλιού crop όταν αλλάζει η εικόνα προεπισκόπησης.
+  - Ασφαλής κλωνοποίηση μεταδεδομένων (`sanitizeJsonMetadata`) στο realm του parent window κατά την κλήση του `context.setMetadata('smartcrop.crop', ...)` μέσα από iframes, εξαλείφοντας τα σφάλματα `DataCloneError` του IndexedDB.
+  - Απόκρυψη του κουμπιού ψαλιδιού σε κατάσταση read-only όταν δεν έχει εφαρμοστεί κάδρο.
+
+### v1.4.0 (2026-10-15)
+- **Universal Visual Framing, SmartBrowser Visual Overlay API & Public Resolvers**:
+  - Ενσωμάτωση με το `SmartBrowserPicker.registerVisualOverlay` (`smartcrop.framing`) και το `SelectionAddress` codec (`smartcrop=sc`).
+  - Προσθήκη των δημόσιων resolvers `SmartCropHelper::resolveCropPresentation()` και `SmartCropHelper::isCropApplicable()` σε PHP και JavaScript (`window.SmartCropHelper`).
+  - Εναρμόνιση του PSR-4 namespace σε `SuperSoft\Plugin\Content\SmartCrop`.
 
 ### v1.2.0 (2026-10-11)
 - **Υποστήριξη Zoom < 100% (Zoom Out / Framing με Κενά & Margins)**:

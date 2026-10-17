@@ -32,10 +32,52 @@ final class SmartCrop extends CMSPlugin implements SubscriberInterface
     public static function getSubscribedEvents(): array
     {
         return [
-            'onContentPrepare'     => 'onContentPrepare',
-            'onContentPrepareForm' => 'onContentPrepareForm',
-            'onBeforeCompileHead'  => 'onBeforeCompileHead',
+            'onContentPrepare'                       => 'onContentPrepare',
+            'onContentPrepareForm'                   => 'onContentPrepareForm',
+            'onBeforeCompileHead'                    => 'onBeforeCompileHead',
+            'onSmartBrowserPrepareImagePresentation' => 'onSmartBrowserPrepareImagePresentation',
         ];
+    }
+
+    /**
+     * Participates in SmartBrowser's generic Image Presentation Contract (`onSmartBrowserPrepareImagePresentation`).
+     *
+     * Receives the primary `\DOMElement` (`<img>`) and resolved presentation context from the host,
+     * resolves any active SmartCrop framing from all supported sources, verifies source identity
+     * against the resolved image, and applies inline presentation styles (including `aspect-ratio`)
+     * while preserving unrelated inline styles and leaving outer frames/pins/links untouched.
+     *
+     * @param   mixed  $eventOrImage  Event instance or \DOMElement
+     * @param   mixed  $context       Optional context array when invoked with positional arguments
+     *
+     * @return  void
+     */
+    public function onSmartBrowserPrepareImagePresentation(mixed $eventOrImage, mixed $context = null): void
+    {
+        $image = null;
+        $ctx   = [];
+
+        if ($eventOrImage instanceof \DOMElement) {
+            $image = $eventOrImage;
+            $ctx   = is_array($context) ? $context : (is_object($context) ? (array) $context : []);
+        } elseif (is_object($eventOrImage)) {
+            if (method_exists($eventOrImage, 'getArgument')) {
+                $image = $eventOrImage->getArgument('imageElement');
+                $rawCtx = $eventOrImage->getArgument('context', []);
+                $ctx = is_array($rawCtx) ? $rawCtx : (is_object($rawCtx) ? (array) $rawCtx : []);
+            } elseif (method_exists($eventOrImage, 'getArguments')) {
+                $args = $eventOrImage->getArguments();
+                $image = $args['imageElement'] ?? ($args[0] ?? null);
+                $rawCtx = $args['context'] ?? ($args[1] ?? []);
+                $ctx = is_array($rawCtx) ? $rawCtx : (is_object($rawCtx) ? (array) $rawCtx : []);
+            }
+        }
+
+        if (!$image instanceof \DOMElement) {
+            return;
+        }
+
+        SmartCropHelper::applySmartBrowserImagePresentation($image, $ctx);
     }
 
     /**
@@ -195,8 +237,8 @@ final class SmartCrop extends CMSPlugin implements SubscriberInterface
                 $doc = Factory::getApplication()->getDocument();
                 if ($doc instanceof HtmlDocument) {
                     $doc->addScriptOptions('plg_content_smartcrop', $this->getEditorOptions());
-                    $doc->addScript(\Joomla\CMS\Uri\Uri::root(true) . '/media/plg_content_smartcrop/js/smartcrop-editor.js', ['version' => '1.3.1'], ['defer' => true]);
-                    $doc->addStyleSheet(\Joomla\CMS\Uri\Uri::root(true) . '/media/plg_content_smartcrop/css/smartcrop-editor.css', ['version' => '1.3.1']);
+                    $doc->addScript(\Joomla\CMS\Uri\Uri::root(true) . '/media/plg_content_smartcrop/js/smartcrop-editor.js', ['version' => '2.0.0'], ['defer' => true]);
+                    $doc->addStyleSheet(\Joomla\CMS\Uri\Uri::root(true) . '/media/plg_content_smartcrop/css/smartcrop-editor.css', ['version' => '2.0.0']);
                 }
             } catch (Throwable) {
             }

@@ -1,6 +1,6 @@
 /**
  * SuperSoft SmartCrop - Editor Controller
- * Version 1.4.0
+ * Version 2.0.0
  *
  * Implements universal, non-destructive image framing inside a flexible modal overlay:
  * - Multi-ratio support with customizable semantic labels and interactive viewfinder HUD
@@ -123,12 +123,28 @@ class SmartCropModalController {
             }
         });
 
-        // Escape key closes modal
-        document.addEventListener('keydown', (e) => {
+        // HTML dialog cancel event (e.g. Esc key native handling)
+        this.modalEl.addEventListener('cancel', (e) => {
+            e.preventDefault();
+            this.closeModal();
+        });
+
+        // Escape key closes modal (listening on modal document and window)
+        const targetDoc = this.modalEl.ownerDocument || document;
+        const targetWin = targetDoc.defaultView || window;
+
+        targetDoc.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.isOpen()) {
                 this.closeModal();
             }
         });
+        if (targetDoc !== document) {
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && this.isOpen()) {
+                    this.closeModal();
+                }
+            });
+        }
 
         // Fallback for Bootstrap events if Bootstrap JS is active
         this.modalEl.addEventListener('shown.bs.modal', () => {
@@ -141,10 +157,20 @@ class SmartCropModalController {
         // Pointer dragging
         if (this.viewport) {
             this.viewport.addEventListener('pointerdown', (e) => this.onPointerDown(e));
-            window.addEventListener('pointermove', (e) => this.onPointerMove(e));
-            window.addEventListener('pointerup', (e) => this.onPointerUp(e));
-            window.addEventListener('pointercancel', (e) => this.onPointerUp(e));
+            this.viewport.addEventListener('pointermove', (e) => this.onPointerMove(e));
+            this.viewport.addEventListener('pointerup', (e) => this.onPointerUp(e));
+            this.viewport.addEventListener('pointercancel', (e) => this.onPointerUp(e));
             this.viewport.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
+
+            targetWin.addEventListener('pointermove', (e) => this.onPointerMove(e));
+            targetWin.addEventListener('pointerup', (e) => this.onPointerUp(e));
+            targetWin.addEventListener('pointercancel', (e) => this.onPointerUp(e));
+
+            if (targetWin !== window) {
+                window.addEventListener('pointermove', (e) => this.onPointerMove(e));
+                window.addEventListener('pointerup', (e) => this.onPointerUp(e));
+                window.addEventListener('pointercancel', (e) => this.onPointerUp(e));
+            }
         }
 
         // Zoom Slider with magnetic snapping
@@ -156,12 +182,20 @@ class SmartCropModalController {
             this.slider.addEventListener('pointerdown', () => {
                 this.isPointerSliding = true;
             });
-            window.addEventListener('pointerup', () => {
+            targetWin.addEventListener('pointerup', () => {
                 this.isPointerSliding = false;
             });
-            window.addEventListener('pointercancel', () => {
+            targetWin.addEventListener('pointercancel', () => {
                 this.isPointerSliding = false;
             });
+            if (targetWin !== window) {
+                window.addEventListener('pointerup', () => {
+                    this.isPointerSliding = false;
+                });
+                window.addEventListener('pointercancel', () => {
+                    this.isPointerSliding = false;
+                });
+            }
 
             this.slider.addEventListener('input', (e) => {
                 let val = parseFloat(e.target.value);
@@ -283,7 +317,8 @@ class SmartCropModalController {
         }
 
         // Global outside click listener
-        document.addEventListener('click', (e) => {
+        const doc = this.modalEl?.ownerDocument || document;
+        doc.addEventListener('click', (e) => {
             if (this.ratioDropdown && !this.ratioDropdown.classList.contains('d-none')) {
                 if (!e.target.closest('[data-smartcrop-ratio-badge]') && !e.target.closest('[data-smartcrop-ratio-dropdown]')) {
                     this.closeRatioDropdown();
@@ -537,11 +572,11 @@ class SmartCropModalController {
                 activeRatioW = Number(options.ratio.width || options.ratio.w) || activeRatioW;
                 activeRatioH = Number(options.ratio.height || options.ratio.h) || activeRatioH;
                 activeLabel = options.ratio.label || `${activeRatioW}:${activeRatioH}`;
-            } else if (typeof options.ratio === 'string' && options.ratio.includes(':')) {
-                const parts = options.ratio.split(':');
+            } else if (typeof options.ratio === 'string' && /[:/xX_]/.test(options.ratio)) {
+                const parts = options.ratio.replace(/[xX/_]/g, ':').split(':');
                 activeRatioW = parseFloat(parts[0]) || activeRatioW;
                 activeRatioH = parseFloat(parts[1]) || activeRatioH;
-                activeLabel = options.ratio;
+                activeLabel = `${activeRatioW}:${activeRatioH}`;
             }
         }
 
@@ -565,12 +600,15 @@ class SmartCropModalController {
 
     isOpen() {
         return this.modalEl.classList.contains('smartcrop-modal-visible')
-            || this.modalEl.classList.contains('show');
+            || this.modalEl.classList.contains('show')
+            || (this.modalEl.tagName === 'DIALOG' && this.modalEl.open);
     }
 
     openModal() {
-        if (this.modalEl.parentNode !== document.body) {
-            document.body.appendChild(this.modalEl);
+        const doc = this.modalEl.ownerDocument || document;
+        const targetBody = doc.body || document.body;
+        if (targetBody && this.modalEl.parentNode !== targetBody) {
+            targetBody.appendChild(this.modalEl);
         }
 
         this.modalEl.classList.add('show', 'smartcrop-modal-visible');
@@ -578,13 +616,30 @@ class SmartCropModalController {
         this.modalEl.style.zIndex = '2147483640';
         this.modalEl.removeAttribute('aria-hidden');
         this.modalEl.setAttribute('aria-modal', 'true');
-        document.body.classList.add('modal-open');
+        targetBody?.classList.add('modal-open');
+
+        // Promote to Browser Top Layer if HTML Dialog element is supported
+        if (typeof this.modalEl.showModal === 'function') {
+            try {
+                if (!this.modalEl.open) {
+                    this.modalEl.showModal();
+                }
+            } catch (err) {}
+        }
+
+        const win = doc.defaultView || window;
+        if (this._boundTargetWin !== win) {
+            this._boundTargetWin = win;
+            win.addEventListener('pointermove', (e) => this.onPointerMove(e));
+            win.addEventListener('pointerup', (e) => this.onPointerUp(e));
+            win.addEventListener('pointercancel', (e) => this.onPointerUp(e));
+        }
 
         try {
-            if (window.bootstrap?.Modal) {
-                const instance = window.bootstrap.Modal.getInstance(this.modalEl);
+            if (win.bootstrap?.Modal) {
+                const instance = win.bootstrap.Modal.getInstance(this.modalEl);
                 if (!instance) {
-                    new window.bootstrap.Modal(this.modalEl);
+                    new win.bootstrap.Modal(this.modalEl);
                 }
             }
         } catch (err) {}
@@ -601,14 +656,28 @@ class SmartCropModalController {
         this.modalEl.style.display = 'none';
         this.modalEl.setAttribute('aria-hidden', 'true');
         this.modalEl.removeAttribute('aria-modal');
-        document.body.classList.remove('modal-open');
+        const doc = this.modalEl.ownerDocument || document;
+        (doc.body || document.body)?.classList.remove('modal-open');
+
+        if (typeof this.modalEl.close === 'function') {
+            try {
+                if (this.modalEl.open) {
+                    this.modalEl.close();
+                }
+            } catch (err) {}
+        }
 
         try {
-            if (window.bootstrap?.Modal) {
-                const instance = window.bootstrap.Modal.getInstance(this.modalEl);
+            const win = doc.defaultView || window;
+            if (win.bootstrap?.Modal) {
+                const instance = win.bootstrap.Modal.getInstance(this.modalEl);
                 instance?.hide();
             }
         } catch (err) {}
+
+        if (doc.activeElement && typeof doc.activeElement.blur === 'function') {
+            try { doc.activeElement.blur(); } catch (e) {}
+        }
     }
 
     findTargetMediaField() {
@@ -1097,6 +1166,7 @@ class SmartCropModalController {
         this.storedProfile = profilePayload;
 
         if (this.isCustomMode) {
+            const effectiveSource = this.activeSource || this.customOptions?.source || this.activeUrl || '';
             const cropResult = {
                 crop: profilePayload.crop,
                 zoom: profilePayload.zoom,
@@ -1107,8 +1177,8 @@ class SmartCropModalController {
                     label: this.ratioLabel || `${this.ratioW}:${this.ratioH}`
                 },
                 sourceDimensions: profilePayload.source_dimensions,
-                uri: this.activeSource ? this.updateUriWithCrop(
-                    this.activeSource,
+                uri: effectiveSource ? this.updateUriWithCrop(
+                    effectiveSource,
                     round4(normX),
                     round4(normY),
                     round4(normW),
@@ -1133,7 +1203,9 @@ class SmartCropModalController {
             if (typeof this.customOptions?.onApply === 'function') {
                 try {
                     this.customOptions.onApply(cropResult);
-                } catch (err) {}
+                } catch (err) {
+                    console.error('[SmartCrop] Error in custom onApply:', err);
+                }
             } else {
                 const previewTarget = this.customOptions?.previewElement || this.customOptions?.targetElement;
                 if (previewTarget) {
@@ -1278,8 +1350,8 @@ class SmartCropModalController {
         val = String(val || '').trim();
         if (!val) return '';
 
-        const cropStr = `${x},${y},${w},${h}`;
-        const ratioStr = `${rw}:${rh}`;
+        const cropStr = `${x}-${y}-${w}-${h}`;
+        const ratioStr = `${rw}x${rh}`;
         const zoomStr = Number(zoom).toFixed(2);
 
         let base = val;
@@ -1307,8 +1379,32 @@ class SmartCropModalController {
                 fragPath = frag;
             }
         } else {
-            const clean = val.replace(/^local-[^/:]+[/:]*/i, 'images/').replace(/^\/+/, '');
+            let clean = val;
+            try {
+                if (/^https?:\/\//i.test(clean)) {
+                    const u = new URL(clean);
+                    clean = u.pathname;
+                }
+            } catch (e) {}
+            clean = clean.replace(/^\/+/, '');
+            const imgIdx = clean.indexOf('images/');
+            if (imgIdx !== -1) {
+                clean = clean.substring(imgIdx);
+            }
+            clean = clean.replace(/^local-[^/:]+[/:]*/i, 'images/').replace(/^\/+/, '');
+            base = clean;
             fragPath = `joomlaImage://local-${clean}`;
+        }
+
+        if (/^https?:\/\//i.test(base)) {
+            try {
+                const u = new URL(base);
+                let p = u.pathname.replace(/^\/+/, '');
+                const imgIdx = p.indexOf('images/');
+                if (imgIdx !== -1) {
+                    base = p.substring(imgIdx);
+                }
+            } catch (e) {}
         }
 
         queryParams.crop = cropStr;
@@ -1429,22 +1525,46 @@ class SmartCropManager {
             } else if (parts[1]) {
                 let frag = parts[1].trim();
                 frag = frag.replace(/^joomlaImage:\/\//i, '');
-                frag = frag.replace(/^local-([a-zA-Z0-9_-]+)[/:]*/i, '$1/');
+                frag = frag.replace(/^local-[^/:]+[/:]*/i, 'images/');
                 s = frag;
             }
         }
 
-        s = s.replace(/^local-([a-zA-Z0-9_-]+)[/:]*/i, '$1/');
         s = s.replace(/\\/g, '/');
+        s = s.replace(/^file:(?:com_media\/[^:]+:)?/i, '');
+        s = s.replace(/^local-[^/:]+[/:]*/i, 'images/');
 
-        if (!/^(?:https?:)?\/\//i.test(s)) {
-            const qIdx = s.indexOf('?');
-            if (qIdx !== -1) {
-                s = s.substring(0, qIdx);
+        if (/^(?:https?:)?\/\//i.test(s)) {
+            try {
+                const dummyOrigin = (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : 'http://localhost';
+                const parsedUrl = new URL(s, dummyOrigin);
+                const curOrigin = (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : '';
+                if (!curOrigin || parsedUrl.origin === curOrigin || parsedUrl.hostname === 'localhost' || (typeof window !== 'undefined' && parsedUrl.hostname === window.location?.hostname)) {
+                    s = parsedUrl.pathname;
+                }
+            } catch (e) {
+                s = s.replace(/^(?:https?:)?\/\/[^\/]+/i, '');
             }
         }
 
-        return s.replace(/^\/+/, '');
+        const qIdx = s.indexOf('?');
+        if (qIdx !== -1) {
+            s = s.substring(0, qIdx);
+        }
+
+        try {
+            s = decodeURIComponent(s);
+        } catch (e) {}
+
+        s = s.replace(/^\/+/, '');
+
+        // Canonicalize Joomla images folder if present
+        const imgPos = s.indexOf('images/');
+        if (imgPos !== -1) {
+            s = s.substring(imgPos);
+        }
+
+        return s;
     }
 
     static resolveImageUrl(val, wrapper, fallbackSiteRoot) {
@@ -1489,35 +1609,65 @@ class SmartCropManager {
 
     /**
      * Resolves an image thumbnail URL for any SmartBrowser resource or context.
-     * Supports images, articles, videos, audio, documents, and thumbnail overrides.
+     * Prioritizes resolved/effective images and thumbnail overrides before indigenous resource images.
      */
     static resolveResourceThumbnailUrl(context, visual) {
-        if (!context || !context.resource) return '';
-        const res = context.resource;
-        const values = (typeof context.getValues === 'function' ? context.getValues() : context.values) || {};
+        if (!context) return '';
+        if (context.imageUrl) {
+            return SmartCropManager.resolveImageUrl(context.imageUrl, visual) || context.imageUrl;
+        }
 
-        // 1. Direct resource thumbnail / poster / image properties
-        let url = res.thumbnail
+        const res = context.resource || {};
+        const values = (typeof context.getValues === 'function' ? context.getValues() : (context.values || context.usage || context.selection?.usage)) || {};
+        const resolvedImg = context.resolvedImage || res.effectiveThumbnailResource || null;
+
+        const isImageLikeAddr = (addr) => {
+            if (!addr || typeof addr !== 'string') return false;
+            const beforeQ = addr.split(/[?#]/)[0] || '';
+            return addr.includes('#joomlaImage://')
+                || /^file:/i.test(addr)
+                || (!beforeQ.includes(':') && (beforeQ.includes('/') || beforeQ.includes('.')));
+        };
+
+        let overrideUrl = '';
+        const rawOverride = values?.['visual.thumbnailOverride'] || values?.['ext.selectionAddress']?.compounds?.['visual.thumbnailOverride'];
+        if (typeof rawOverride === 'string' && isImageLikeAddr(rawOverride)) {
+            overrideUrl = rawOverride;
+        } else if (rawOverride && typeof rawOverride === 'object') {
+            const cand = rawOverride.image || rawOverride.url || rawOverride.id || '';
+            if (isImageLikeAddr(cand)) overrideUrl = cand;
+        }
+
+        const resolvedImgUrl = resolvedImg
+            ? (resolvedImg.image || resolvedImg.thumbnail || resolvedImg.metadata?.image || resolvedImg.metadata?.thumbnail || resolvedImg.metadata?.url || resolvedImg.url || (resolvedImg.type === 'image' ? resolvedImg.id : '') || '')
+            : '';
+
+        const primaryImgEl = (typeof context.getImageElement === 'function' ? context.getImageElement() : null) || context.imageElement;
+        const primaryImgSrc = primaryImgEl ? (primaryImgEl.currentSrc || primaryImgEl.src || primaryImgEl.getAttribute?.('src') || '') : '';
+
+        // 1. Prioritize resolvedImage / effectiveThumbnail / thumbnailOverride / imageAddress / primary DOM img before indigenous thumbnail
+        let url = resolvedImgUrl
+            || res.effectiveThumbnail
+            || overrideUrl
+            || (isImageLikeAddr(context.imageAddress) ? context.imageAddress : '')
+            || primaryImgSrc
+            || res.thumbnail
             || res.metadata?.thumbnail
             || res.metadata?.poster
-            || res.effectiveThumbnail
-            || res.effectiveThumbnailResource?.image
-            || res.effectiveThumbnailResource?.metadata?.url
-            || res.effectiveThumbnailResource?.thumbnail
             || res.image
+            || res.metadata?.image
             || (res.type === 'image' ? (res.metadata?.url || res.url || (typeof context.getAddress === 'function' ? context.getAddress() : '') || res.id) : '');
 
-        // 2. Check visual.thumbnailOverride or other usage values
-        if (!url && values) {
-            if (typeof values['visual.thumbnailOverride'] === 'string') {
-                url = values['visual.thumbnailOverride'];
-            } else if (values['visual.thumbnailOverride']?.id) {
-                url = values['visual.thumbnailOverride'].id;
-            }
+        // 2. Check indigenous article images JSON if present
+        if (!url && res.images) {
+            try {
+                const imgs = typeof res.images === 'string' ? JSON.parse(res.images) : res.images;
+                url = imgs?.image_intro || imgs?.image_fulltext || '';
+            } catch (e) {}
         }
 
         // 3. If SmartBrowser Media Value formatter is available
-        if (!url && window.SmartBrowserMediaValue?.format) {
+        if (!url && typeof window !== 'undefined' && window.SmartBrowserMediaValue?.format && context.resource) {
             try {
                 url = window.SmartBrowserMediaValue.format(res, 'url');
             } catch (e) {}
@@ -1525,14 +1675,14 @@ class SmartCropManager {
 
         // 4. Fallback: check DOM in visual surface for rendered resource-visual-image
         if (!url && visual) {
-            const domImg = visual.querySelector('img.resource-visual-image, img:not(.smartcrop-preview-ghost):not(.smartcrop-cropped-preview)');
+            const domImg = visual.querySelector('img[data-sb-primary-image], img.resource-visual-image, img:not(.smartcrop-preview-ghost):not(.smartcrop-cropped-preview)');
             if (domImg) {
                 url = domImg.currentSrc || domImg.src || domImg.getAttribute('src') || '';
             }
         }
 
         if (typeof url === 'string') {
-            url = url.split('#')[0].split('?')[0].trim();
+            url = SmartCropManager.normalizeSource(url) || url.split('#')[0].split('?')[0].trim();
         }
 
         if (!url) return '';
@@ -1541,11 +1691,23 @@ class SmartCropManager {
 
     static extractCropFromValue(val) {
         if (!val) return null;
-        let s = String(val).trim();
+        if (typeof val === 'object') {
+            return val.crop ? val : null;
+        }
+        const rawStr = String(val).trim();
+        if (!rawStr) return null;
 
+        if ((rawStr.startsWith('{') && rawStr.endsWith('}')) || (rawStr.startsWith('[') && rawStr.endsWith(']'))) {
+            try {
+                const parsed = JSON.parse(rawStr);
+                if (parsed && typeof parsed === 'object') return parsed;
+            } catch (e) {}
+        }
+
+        let s = rawStr;
         if (s.includes('#')) {
             const parts = s.split('#');
-            if (parts[1]) {
+            if (parts[1] && parts[1].includes('?')) {
                 s = parts[1];
             }
         }
@@ -1557,24 +1719,76 @@ class SmartCropManager {
         const queryParams = {};
         query.split('&').forEach((pair) => {
             if (!pair) return;
-            const [k, v] = pair.split('=');
+            const eqIdx = pair.indexOf('=');
+            const k = eqIdx !== -1 ? pair.substring(0, eqIdx) : pair;
+            const v = eqIdx !== -1 ? pair.substring(eqIdx + 1) : '';
             const dk = decodeURIComponent(k);
             if (dk) {
                 queryParams[dk] = v ? decodeURIComponent(v) : '';
             }
         });
 
-        const cropStr = queryParams['crop'];
-        if (!cropStr) return null;
+        let alias = null;
+        if (typeof queryParams.smartcrop === 'string' && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(queryParams.smartcrop)) {
+            alias = queryParams.smartcrop;
+        } else if (typeof queryParams.crop === 'string' && queryParams.crop !== 'original' && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(queryParams.crop)) {
+            alias = queryParams.crop;
+        }
 
-        const coords = cropStr.split(',').map(Number);
+        const cropStr = (alias ? (queryParams[`${alias}.coords`] || queryParams[`${alias}_coords`]) : null)
+            || queryParams.crop
+            || queryParams.coords
+            || queryParams['sc.coords']
+            || queryParams['sc_coords']
+            || queryParams['c.coords']
+            || queryParams['c_coords'];
+
+        if (!cropStr || cropStr === 'original') return null;
+
+        const normalizedCropStr = String(cropStr).trim().replace(/(\d)-/g, '$1,');
+        const coords = normalizedCropStr.split(/[,_~]+/).map(Number);
         if (coords.length !== 4 || coords.some(isNaN)) return null;
 
-        const zoom = parseFloat(queryParams['zoom']) || 1.0;
-        const ratioStr = queryParams['ratio'] || '4:3';
-        const [rw, rh] = ratioStr.split(':').map(Number);
+        const zoomRaw = (alias ? (queryParams[`${alias}.zoom`] || queryParams[`${alias}_zoom`]) : null)
+            || queryParams.zoom
+            || queryParams['sc.zoom']
+            || queryParams['sc_zoom']
+            || queryParams['c.zoom']
+            || queryParams['c_zoom'];
+        const zoom = parseFloat(zoomRaw) || 1.0;
 
-        return {
+        const ratioStr = (alias ? (queryParams[`${alias}.ratio`] || queryParams[`${alias}_ratio`]) : null)
+            || queryParams.ratio
+            || queryParams['sc.ratio']
+            || queryParams['sc_ratio']
+            || queryParams['c.ratio']
+            || queryParams['c_ratio']
+            || '4:3';
+        const [rw, rh] = String(ratioStr).replace(/[xX/_]/g, ':').split(':').map((n) => parseFloat(n.trim()));
+
+        let source = (alias ? (queryParams[`${alias}.src`] || queryParams[`${alias}_src`] || queryParams[`${alias}.source`]) : null)
+            || queryParams.source
+            || queryParams.src
+            || queryParams['sc.src']
+            || queryParams['sc_src']
+            || queryParams['c.src']
+            || queryParams['c_src']
+            || '';
+
+        if (!source) {
+            const beforeQuery = rawStr.split(/[?#]/)[0] || '';
+            const isImageUri = rawStr.includes('#joomlaImage://')
+                || /^file:/i.test(rawStr)
+                || (beforeQuery !== '' && !beforeQuery.startsWith('{') && !beforeQuery.includes('=') && !beforeQuery.includes(':') && (beforeQuery.includes('/') || beforeQuery.includes('.')));
+            if (isImageUri) {
+                const normCandidate = SmartCropManager.normalizeSource(rawStr);
+                if (normCandidate && !normCandidate.includes(':')) {
+                    source = normCandidate;
+                }
+            }
+        }
+
+        const result = {
             crop: {
                 x: coords[0],
                 y: coords[1],
@@ -1587,6 +1801,10 @@ class SmartCropManager {
                 height: rh || 3
             }
         };
+        if (source) {
+            result.source = SmartCropManager.normalizeSource(source) || source;
+        }
+        return result;
     }
 
     static getContainerDimensions(container) {
@@ -2110,24 +2328,55 @@ class SmartCropManager {
         return cfg;
     }
 
-    static ensureModal(profile) {
-        let modalEl = document.getElementById(`smartcrop-modal-${profile}`)
-            || document.querySelector(`[data-smartcrop-modal][data-profile="${profile}"]`)
-            || document.querySelector('[data-smartcrop-modal]');
+    static ensureStylesInDocument(targetDoc) {
+        if (!targetDoc || !targetDoc.head) return;
+        if (targetDoc.querySelector('link[href*="smartcrop-editor.css"], style[data-smartcrop-styles]')) {
+            return;
+        }
+        const parentLink = document.querySelector('link[href*="smartcrop-editor.css"]');
+        if (parentLink) {
+            const link = targetDoc.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = parentLink.href;
+            targetDoc.head.appendChild(link);
+            return;
+        }
+        const joomlaRoot = (window.Joomla && Joomla.getOptions && Joomla.getOptions('system.paths')?.rootFull)
+            || (window.Joomla && Joomla.getOptions && Joomla.getOptions('system.paths')?.root) || '';
+        const cleanRoot = joomlaRoot.replace(/\/index\.php\/?$/i, '/').replace(/\/+$/, '');
+        const link = targetDoc.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = `${cleanRoot}/media/plg_content_smartcrop/css/smartcrop-editor.css?v=2.0.0`;
+        targetDoc.head.appendChild(link);
+    }
+
+    static ensureModal(profile, targetDoc = null) {
+        const doc = targetDoc || (typeof document !== 'undefined' ? document : null);
+        if (!doc) return null;
+        let modalEl = doc.getElementById(`smartcrop-modal-${profile}`)
+            || doc.querySelector(`[data-smartcrop-modal][data-profile="${profile}"]`)
+            || doc.querySelector('[data-smartcrop-modal]');
+
+        // Upgrade legacy DIV element to HTML Dialog element if needed
+        if (modalEl && modalEl.tagName !== 'DIALOG') {
+            modalEl.remove();
+            modalEl = null;
+        }
 
         if (!modalEl) {
-            modalEl = SmartCropManager.buildModalDom(profile);
-            document.body.appendChild(modalEl);
+            modalEl = SmartCropManager.buildModalDom(profile, doc);
+            (doc.body || doc.documentElement).appendChild(modalEl);
         }
         return modalEl;
     }
 
-    static buildModalDom(profile) {
+    static buildModalDom(profile, targetDoc = null) {
+        const doc = targetDoc || (typeof document !== 'undefined' ? document : null);
         const cfg = SmartCropManager.getConfig();
         const firstRatio = cfg.ratios?.[0] || { width: 4, height: 3, label: 'Πλαίσιο άρθρου' };
         const maxWidth = cfg.previewMaxWidth || 480;
 
-        const div = document.createElement('div');
+        const div = doc.createElement('dialog');
         div.className = 'modal fade smartcrop-modal';
         div.id = `smartcrop-modal-${profile || 'universal'}`;
         div.tabIndex = -1;
@@ -2257,7 +2506,12 @@ class SmartCropManager {
 
     static openCustom(options = {}) {
         const profile = options.profile || 'universal';
-        const modalEl = SmartCropManager.ensureModal(profile);
+        const targetDoc = options.document
+            || options.previewElement?.ownerDocument
+            || options.targetElement?.ownerDocument
+            || (typeof document !== 'undefined' ? document : null);
+        SmartCropManager.ensureStylesInDocument(targetDoc);
+        const modalEl = SmartCropManager.ensureModal(profile, targetDoc);
         if (!modalEl._smartcropController) {
             modalEl._smartcropController = new SmartCropModalController(modalEl);
         }
@@ -2413,18 +2667,37 @@ class SmartCropManager {
         }
     }
 
-    static appendCropToJoomlaUri(val, cropResult) {
+    static appendCropToJoomlaUri(val, ...args) {
         val = String(val || '').trim();
         if (!val) return '';
-        const crop = cropResult?.crop || cropResult;
-        if (!crop) return val;
-        const x = Number(crop.x) || 0;
-        const y = Number(crop.y) || 0;
-        const w = Number(crop.width) || 1;
-        const h = Number(crop.height) || 1;
-        const zoom = Number(cropResult.zoom) || 1.0;
-        const rw = cropResult.ratio?.width || 4;
-        const rh = cropResult.ratio?.height || 3;
+        if (args.length === 0) return val;
+
+        let x = 0, y = 0, w = 1, h = 1, zoom = 1.0, rw = 4, rh = 3;
+        if (typeof args[0] === 'object' && args[0] !== null) {
+            const cropResult = args[0];
+            const crop = cropResult.crop || cropResult;
+            x = Number(crop.x) || 0;
+            y = Number(crop.y) || 0;
+            w = Number(crop.width) || 1;
+            h = Number(crop.height) || 1;
+            zoom = Number(cropResult.zoom) || 1.0;
+            if (cropResult.ratio && typeof cropResult.ratio === 'object') {
+                rw = cropResult.ratio.width || 4;
+                rh = cropResult.ratio.height || 3;
+            } else if (typeof cropResult.ratio === 'string' && /[:/xX_]/.test(cropResult.ratio)) {
+                const parts = cropResult.ratio.replace(/[xX/_]/g, ':').split(':');
+                rw = parseFloat(parts[0]) || 4;
+                rh = parseFloat(parts[1]) || 3;
+            }
+        } else {
+            x = Number(args[0]) || 0;
+            y = Number(args[1]) || 0;
+            w = Number(args[2]) || 1;
+            h = Number(args[3]) || 1;
+            zoom = args[4] != null ? Number(args[4]) : 1.0;
+            rw = args[5] != null ? Number(args[5]) : 4;
+            rh = args[6] != null ? Number(args[6]) : 3;
+        }
 
         return SmartCropModalController.prototype.updateUriWithCrop.call(
             null,
@@ -2506,9 +2779,11 @@ class SmartCropManager {
             payload = payload.usage['ext.smartcrop.crop'];
         }
 
-        // Resolve potential compound alias (e.g. crop=c with c.coords, c.ratio, c.src, c.zoom)
+        // Resolve potential compound alias (e.g. smartcrop=sc or crop=c with .coords, .ratio, .src, .zoom)
         let alias = null;
-        if (typeof payload.crop === 'string' && !payload.crop.includes(',') && !payload.crop.startsWith('{')) {
+        if (typeof payload.smartcrop === 'string' && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(payload.smartcrop)) {
+            alias = payload.smartcrop;
+        } else if (typeof payload.crop === 'string' && payload.crop !== 'original' && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(payload.crop)) {
             alias = payload.crop;
         }
 
@@ -2517,12 +2792,13 @@ class SmartCropManager {
             cropRaw = payload[`${alias}.coords`] || payload[`${alias}_coords`];
         }
         if (!cropRaw) {
-            cropRaw = payload.crop || payload.coords || payload['c.coords'] || payload['c_coords'];
+            cropRaw = payload.crop || payload.coords || payload['sc.coords'] || payload['sc_coords'] || payload['c.coords'] || payload['c_coords'];
         }
 
         if (typeof cropRaw === 'string') {
-            const coords = cropRaw.split(',').map(Number);
-            if (coords.length === 4) {
+            const normalizedCropRaw = cropRaw.trim().replace(/(\d)-/g, '$1,');
+            const coords = normalizedCropRaw.split(/[,_~]+/).map(Number);
+            if (coords.length === 4 && !coords.some(isNaN)) {
                 cropRaw = { x: coords[0], y: coords[1], width: coords[2], height: coords[3] };
             }
         }
@@ -2537,13 +2813,26 @@ class SmartCropManager {
             expectedSource = payload[`${alias}.src`] || payload[`${alias}_src`] || payload[`${alias}.source`];
         }
         if (!expectedSource) {
-            expectedSource = payload.source || payload.src || payload['c.src'] || payload['c_src'] || '';
+            expectedSource = payload.source || payload.src || payload['sc.src'] || payload['sc_src'] || payload['c.src'] || payload['c_src'] || '';
+        }
+        if (!expectedSource && typeof cropMetadata === 'string') {
+            const trimmedMeta = cropMetadata.trim();
+            const beforeQuery = trimmedMeta.split(/[?#]/)[0] || '';
+            const isImageUri = trimmedMeta.includes('#joomlaImage://')
+                || /^file:/i.test(trimmedMeta)
+                || (beforeQuery !== '' && !beforeQuery.startsWith('{') && !beforeQuery.includes('=') && !beforeQuery.includes(':') && (beforeQuery.includes('/') || beforeQuery.includes('.')));
+            if (isImageUri) {
+                const uriCandidateSource = SmartCropManager.normalizeSource(trimmedMeta);
+                if (uriCandidateSource && !uriCandidateSource.includes(':')) {
+                    expectedSource = uriCandidateSource;
+                }
+            }
         }
 
         if (expectedSource && typeof expectedSource === 'string' && expectedSource.trim() !== '') {
             const normExpected = SmartCropManager.normalizeSource(expectedSource);
             if (normExpected && normFinal !== normExpected) {
-                // Source mismatch: Intro Image was changed!
+                // Source mismatch: image was changed or overridden!
                 return null;
             }
         }
@@ -2553,14 +2842,14 @@ class SmartCropManager {
         let rh = 3;
         let ratioRaw = alias ? (payload[`${alias}.ratio`] || payload[`${alias}_ratio`]) : null;
         if (!ratioRaw) {
-            ratioRaw = payload.ratio || payload['c.ratio'] || payload['c_ratio'];
+            ratioRaw = payload.ratio || payload['sc.ratio'] || payload['sc_ratio'] || payload['c.ratio'] || payload['c_ratio'];
         }
 
         if (ratioRaw && typeof ratioRaw === 'object' && ratioRaw.width && ratioRaw.height) {
             rw = Number(ratioRaw.width) || 4;
             rh = Number(ratioRaw.height) || 3;
-        } else if (typeof ratioRaw === 'string' && ratioRaw.includes(':')) {
-            const parts = ratioRaw.split(':');
+        } else if (typeof ratioRaw === 'string' && /[:/xX_]/.test(ratioRaw)) {
+            const parts = ratioRaw.replace(/[xX/_]/g, ':').split(':');
             rw = parseFloat(parts[0]) || 4;
             rh = parseFloat(parts[1]) || 3;
         } else if (typeof ratioRaw === 'number' && ratioRaw > 0) {
@@ -2575,7 +2864,7 @@ class SmartCropManager {
         let zoom = 1.0;
         let zoomRaw = alias ? (payload[`${alias}.zoom`] || payload[`${alias}_zoom`]) : null;
         if (!zoomRaw) {
-            zoomRaw = payload.zoom || payload['c.zoom'] || payload['c_zoom'];
+            zoomRaw = payload.zoom || payload['sc.zoom'] || payload['sc_zoom'] || payload['c.zoom'] || payload['c_zoom'];
         }
         if (zoomRaw != null && !isNaN(zoomRaw)) {
             zoom = Math.max(0.05, Math.min(5.0, Number(zoomRaw)));
@@ -2687,17 +2976,17 @@ class SmartCropManager {
                             const y = Number(crop.y) || 0;
                             const w = Number(crop.width) || 1;
                             const h = Number(crop.height) || 1;
-                            parts.push(['coords', `${x.toFixed(4)},${y.toFixed(4)},${w.toFixed(4)},${h.toFixed(4)}`]);
+                            parts.push(['coords', `${x.toFixed(4)}-${y.toFixed(4)}-${w.toFixed(4)}-${h.toFixed(4)}`]);
                         } else {
-                            parts.push(['coords', String(crop)]);
+                            parts.push(['coords', String(crop).trim().replace(/(\d),/g, '$1-')]);
                         }
                     }
                     const ratio = value.ratio;
                     if (ratio) {
                         if (typeof ratio === 'object' && ratio.width && ratio.height) {
-                            parts.push(['ratio', `${ratio.width}:${ratio.height}`]);
+                            parts.push(['ratio', `${ratio.width}x${ratio.height}`]);
                         } else {
-                            parts.push(['ratio', String(ratio)]);
+                            parts.push(['ratio', String(ratio).trim().replace(/[:/]/g, 'x')]);
                         }
                     }
                     const zoom = Number(value.zoom);
@@ -2706,7 +2995,7 @@ class SmartCropManager {
                     }
                     const src = value.source || value.src;
                     if (src) {
-                        parts.push(['src', encodeURIComponent(SmartCropManager.normalizeSource(src))]);
+                        parts.push(['src', SmartCropManager.normalizeSource(src)]);
                     }
                     if (!parts.length) {
                         parts.push(['coords', 'original']);
@@ -2717,15 +3006,18 @@ class SmartCropManager {
                     const map = Object.fromEntries(parts);
                     let crop = null;
                     if (map.coords && map.coords !== 'original') {
-                        const coords = map.coords.split(',').map(Number);
-                        if (coords.length === 4) {
+                        const normalizedCoords = String(map.coords).trim().replace(/(\d)-/g, '$1,');
+                        const coords = normalizedCoords.split(/[,_~]+/).map(Number);
+                        if (coords.length === 4 && !coords.some(isNaN)) {
                             crop = { x: coords[0], y: coords[1], width: coords[2], height: coords[3] };
                         }
                     }
                     let ratio = null;
-                    if (map.ratio && map.ratio.includes(':')) {
-                        const rParts = map.ratio.split(':').map(Number);
-                        ratio = { width: rParts[0], height: rParts[1], label: map.ratio };
+                    if (map.ratio && /[:/xX_]/.test(String(map.ratio))) {
+                        const rParts = String(map.ratio).replace(/[xX/_]/g, ':').split(':').map(Number);
+                        if (rParts.length === 2 && !rParts.some(isNaN)) {
+                            ratio = { width: rParts[0], height: rParts[1], label: `${rParts[0]}:${rParts[1]}` };
+                        }
                     }
                     let src = '';
                     if (map.src) {
@@ -2750,13 +3042,469 @@ class SmartCropManager {
                 key: 'ext.smartcrop.crop',
                 type: 'object',
                 editor: 'none',
-                address: { name: 'crop', codec: 'smartcrop', alias: 'c' }
+                address: { name: 'smartcrop', codec: 'smartcrop', alias: 'sc' }
             });
 
             SmartCropManager._selectionAddressRegistered = true;
         } catch (e) {
+            console.warn('[SmartCrop] registerSelectionAddressCodec error:', e);
             SmartCropManager._selectionAddressRegistered = true;
         }
+    }
+
+    static getActiveCrop(context, targetImageUrl = null) {
+        if (!context) return null;
+
+        const res = context.resource || {};
+        const values = (typeof context.getValues === 'function' ? context.getValues() : (context.values || context.usage || context.selection?.usage)) || {};
+        const allMeta = (typeof context.getMetadata === 'function' ? context.getMetadata() : (context.metadata || context.selection?.metadata)) || {};
+        const resolvedImg = context.resolvedImage || res.effectiveThumbnailResource || null;
+        const primaryImg = (typeof context.getImageElement === 'function' ? context.getImageElement() : null) || context.imageElement;
+        const domSrc = primaryImg ? (primaryImg.getAttribute?.('src') || primaryImg.src || '') : '';
+
+        const imgUrl = targetImageUrl || context.imageUrl || SmartCropManager.resolveResourceThumbnailUrl(context);
+
+        let explicitlyCleared = false;
+        if (typeof context.getMetadata === 'function') {
+            const directMeta = context.getMetadata('smartcrop.crop');
+            if (directMeta === null || directMeta === false) {
+                explicitlyCleared = true;
+            }
+        }
+        if (!explicitlyCleared && allMeta && typeof allMeta === 'object') {
+            if (('smartcrop.crop' in allMeta && (allMeta['smartcrop.crop'] === null || allMeta['smartcrop.crop'] === false))
+                || ('ext.smartcrop.crop' in allMeta && (allMeta['ext.smartcrop.crop'] === null || allMeta['ext.smartcrop.crop'] === false))) {
+                explicitlyCleared = true;
+            }
+        }
+        if (!explicitlyCleared && values && typeof values === 'object') {
+            if (('smartcrop.crop' in values && (values['smartcrop.crop'] === null || values['smartcrop.crop'] === false))
+                || ('ext.smartcrop.crop' in values && (values['ext.smartcrop.crop'] === null || values['ext.smartcrop.crop'] === false))) {
+                explicitlyCleared = true;
+            }
+        }
+
+        const compounds = values?.['ext.selectionAddress']?.compounds || {};
+        const rawThumbOverride = values?.['visual.thumbnailOverride'] || compounds['visual.thumbnailOverride'];
+        let overrideImage = '';
+        if (typeof rawThumbOverride === 'string') {
+            overrideImage = rawThumbOverride.trim();
+        } else if (rawThumbOverride && typeof rawThumbOverride === 'object') {
+            overrideImage = String(rawThumbOverride.image || rawThumbOverride.url || rawThumbOverride.id || '').trim();
+        }
+        let hasThumbnailOverride = Boolean(overrideImage);
+
+        let imagesData = null;
+        if (res.images) {
+            try {
+                imagesData = typeof res.images === 'string' ? JSON.parse(res.images) : res.images;
+            } catch (e) {}
+        }
+
+        const indigenousSource = String(
+            res.image
+            || res.metadata?.image
+            || imagesData?.image_intro
+            || imagesData?.image_fulltext
+            || (!hasThumbnailOverride ? (res.thumbnail || res.metadata?.thumbnail || res.metadata?.poster || res.metadata?.url || res.url || (res.type === 'image' ? res.id : '')) : '')
+            || ''
+        ).trim();
+
+        if (!hasThumbnailOverride && indigenousSource && imgUrl) {
+            const normIndig = SmartCropManager.normalizeSource(indigenousSource);
+            const normTarget = SmartCropManager.normalizeSource(imgUrl);
+            if (normIndig && normTarget && normIndig !== normTarget) {
+                hasThumbnailOverride = true;
+            }
+        }
+
+        const hasUriCropParams = (val) => typeof val === 'string' && (val.includes('crop=') || val.includes('.coords=') || val.includes('_coords='));
+
+        const acceptCandidate = (rawCand, fallbackSource = '') => {
+            if (!rawCand) return null;
+            let candObj = rawCand;
+            if (typeof candObj === 'string') {
+                const trimmed = candObj.trim();
+                if (!trimmed) return null;
+                if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                    try { candObj = JSON.parse(trimmed); } catch (e) { return null; }
+                } else if (hasUriCropParams(trimmed)) {
+                    candObj = SmartCropManager.extractCropFromValue(trimmed);
+                } else {
+                    return null;
+                }
+            }
+            if (!candObj || typeof candObj !== 'object') return null;
+
+            // Unwrap nested usage/extension keys if needed
+            if (candObj['ext.smartcrop.crop'] && typeof candObj['ext.smartcrop.crop'] === 'object') {
+                candObj = candObj['ext.smartcrop.crop'];
+            } else if (candObj['smartcrop.crop'] && typeof candObj['smartcrop.crop'] === 'object') {
+                candObj = candObj['smartcrop.crop'];
+            }
+
+            const crop = candObj.crop || candObj;
+            if (!crop || typeof crop !== 'object' || crop.width == null || crop.height == null) {
+                return null;
+            }
+
+            let candidateWithSource = candObj;
+            if (!candObj.source && !candObj.src && fallbackSource) {
+                candidateWithSource = { ...candObj, source: fallbackSource };
+            }
+
+            if (imgUrl && !SmartCropManager.isCropMatchingSource(candidateWithSource, imgUrl)) {
+                return null;
+            }
+
+            return candidateWithSource;
+        };
+
+        // 1. Explicit extension metadata (getMetadata / values)
+        const directMetaVal = typeof context.getMetadata === 'function' ? context.getMetadata('smartcrop.crop') : null;
+        const extCandidates = [
+            directMetaVal,
+            allMeta?.['smartcrop.crop'],
+            allMeta?.['ext.smartcrop.crop'],
+            allMeta?.crop,
+            values?.['ext.smartcrop.crop'],
+            values?.['smartcrop.crop'],
+        ];
+        for (const cand of extCandidates) {
+            const accepted = acceptCandidate(cand);
+            if (accepted) return accepted;
+        }
+
+        // 2. Direct resolved imageAddress / imageUrl / DOM src containing crop parameters
+        for (const uriCand of [context.imageAddress, context.imageUrl, domSrc]) {
+            if (hasUriCropParams(uriCand)) {
+                const accepted = acceptCandidate(uriCand);
+                if (accepted) return accepted;
+            }
+        }
+
+        // 3. Thumbnail override compounds & values
+        const overrideCandidates = [
+            compounds['visual.thumbnailOverride'],
+            values?.['visual.thumbnailOverride'],
+            res.effectiveImageAddress,
+        ];
+        if (compounds && typeof compounds === 'object') {
+            Object.values(compounds).forEach((cv) => {
+                if (hasUriCropParams(cv)) overrideCandidates.push(cv);
+            });
+        }
+        for (const ovCand of overrideCandidates) {
+            const accepted = acceptCandidate(ovCand);
+            if (accepted) return accepted;
+        }
+
+        // 4. Selection Address (smartcrop=sc or crop=c)
+        const addressCandidates = [
+            typeof context.getAddress === 'function' ? context.getAddress() : null,
+            typeof context.getSelectionAddress === 'function' ? context.getSelectionAddress() : null,
+            context.address,
+            context.selection?.address,
+            values?.['ext.address'],
+        ];
+        for (const addrCand of addressCandidates) {
+            if (hasUriCropParams(addrCand)) {
+                const accepted = acceptCandidate(addrCand);
+                if (accepted) return accepted;
+            }
+        }
+
+        if (explicitlyCleared) {
+            return null;
+        }
+
+        // 5. Resolved image resource (effectiveThumbnailResource) crop metadata
+        if (resolvedImg && typeof resolvedImg === 'object') {
+            const resImgSource = String(
+                resolvedImg.image
+                || resolvedImg.thumbnail
+                || resolvedImg.metadata?.image
+                || resolvedImg.metadata?.thumbnail
+                || resolvedImg.metadata?.url
+                || resolvedImg.url
+                || (resolvedImg.type === 'image' ? resolvedImg.id : '')
+                || ''
+            ).trim();
+
+            const resImgCandidates = [
+                resolvedImg.imageCrop,
+                resolvedImg.metadata?.imageCrop,
+                resolvedImg.crop,
+                resolvedImg.metadata?.crop,
+                resolvedImg.smartcrop,
+                resolvedImg.metadata?.smartcrop,
+                resolvedImg.image,
+                resolvedImg.metadata?.image,
+                resolvedImg.thumbnail,
+                resolvedImg.metadata?.thumbnail,
+            ];
+            for (const cand of resImgCandidates) {
+                const accepted = acceptCandidate(cand, resImgSource);
+                if (accepted) return accepted;
+            }
+        }
+
+        // 6. Indigenous resource crop metadata (only if matching target image and not overridden by a different image)
+        const indigenousCandidates = [
+            res.imageCrop,
+            res.metadata?.imageCrop,
+            res.crop,
+            res.metadata?.crop,
+            res.smartcrop,
+            res.metadata?.smartcrop,
+        ];
+        for (const cand of indigenousCandidates) {
+            if (!cand) continue;
+            if (typeof cand === 'object' && !cand.source && !cand.src && !indigenousSource && hasThumbnailOverride) {
+                continue;
+            }
+            const accepted = acceptCandidate(cand, indigenousSource);
+            if (accepted) return accepted;
+        }
+
+        const indigenousUris = [
+            res.image,
+            res.metadata?.image,
+            imagesData?.image_intro,
+            imagesData?.image_fulltext,
+        ];
+        if (!hasThumbnailOverride) {
+            indigenousUris.push(res.thumbnail, res.metadata?.thumbnail, res.id);
+        }
+        for (const uriCand of indigenousUris) {
+            if (hasUriCropParams(uriCand)) {
+                const accepted = acceptCandidate(uriCand, indigenousSource);
+                if (accepted) return accepted;
+            }
+        }
+
+        if (imagesData?.smartcrop) {
+            try {
+                const sc = typeof imagesData.smartcrop === 'string' ? JSON.parse(imagesData.smartcrop) : imagesData.smartcrop;
+                const profiles = sc?.profiles || {};
+                const prof = profiles.default || profiles.intro || profiles.fulltext || null;
+                if (prof) {
+                    const accepted = acceptCandidate(prof, prof.source || indigenousSource);
+                    if (accepted) return accepted;
+                }
+            } catch (e) {}
+        }
+
+        // 7. Check native media input only if context field is a native image field
+        const isNativeImageField = context.fieldElement?.hasAttribute?.('data-sb-article-media') ||
+                                   context.fieldElement?.closest?.('[data-sb-native-media], .sb-article-image-field, joomla-field-media');
+        if (isNativeImageField) {
+            const nativeInp = context.fieldElement?.closest?.('form, body')?.querySelector?.('input[name="jform[images][image_intro]"], input[name="jform[images][image_fulltext]"]');
+            if (nativeInp && nativeInp.value && hasUriCropParams(nativeInp.value)) {
+                const accepted = acceptCandidate(nativeInp.value);
+                if (accepted) return accepted;
+            }
+        }
+
+        return null;
+    }
+
+    static isCropMatchingSource(cropObj, sourceUrl) {
+        if (!cropObj || !sourceUrl) return true;
+        const activeSource = cropObj?.source || cropObj?.src || '';
+        if (!activeSource) return true;
+        const normActive = SmartCropManager.normalizeSource(activeSource);
+        const normCur = SmartCropManager.normalizeSource(sourceUrl);
+        if (normActive && normCur && normActive !== normCur) {
+            return false;
+        }
+        return true;
+    }
+
+    static registerSmartBrowserImagePresentation() {
+        if (typeof window === 'undefined') return;
+        if (window._smartcropSbPresentationRegistered) return;
+
+        const doRegister = () => {
+            SmartCropManager.registerSelectionAddressCodec();
+            if (!window.SmartBrowserPicker || typeof window.SmartBrowserPicker.registerImagePresentation !== 'function') {
+                return false;
+            }
+            if (window._smartcropSbPresentationRegistered) return true;
+
+            try {
+                window.SmartBrowserPicker.registerImagePresentation({
+                    id: 'smartcrop.presentation',
+                    order: 100,
+                    styles: [
+                        'aspect-ratio',
+                        'position',
+                        'left',
+                        'top',
+                        'width',
+                        'height',
+                        'max-width',
+                        'max-height',
+                        'object-fit',
+                        'pointer-events'
+                    ],
+                    applies: (context) => {
+                        if (!context || (!context.resource && !context.imageUrl && !context.resolvedImage)) return false;
+                        const imgEl = (typeof context.getImageElement === 'function' ? context.getImageElement() : null) || context.imageElement;
+                        if (imgEl?.getAttribute?.('data-sb-image-presentation') === 'server') {
+                            return false;
+                        }
+                        const imgUrl = context.imageUrl || SmartCropManager.resolveResourceThumbnailUrl(context);
+                        const cropObj = SmartCropManager.getActiveCrop(context, imgUrl);
+                        if (!cropObj) return false;
+                        const crop = cropObj?.crop || cropObj;
+                        if (!crop || typeof crop !== 'object' || !crop.width || !crop.height) {
+                            return false;
+                        }
+                        return SmartCropManager.isCropMatchingSource(cropObj, imgUrl);
+                    },
+                    hasChanges: (context) => {
+                        if (!context || (!context.resource && !context.imageUrl && !context.resolvedImage)) return false;
+                        const imgUrl = context.imageUrl || SmartCropManager.resolveResourceThumbnailUrl(context);
+                        const cropObj = SmartCropManager.getActiveCrop(context, imgUrl);
+                        if (!cropObj) return false;
+                        const crop = cropObj?.crop || cropObj;
+                        if (!crop || typeof crop !== 'object' || !crop.width || !crop.height) {
+                            return false;
+                        }
+                        return SmartCropManager.isCropMatchingSource(cropObj, imgUrl);
+                    },
+                    reset: async (context) => {
+                        const imgEl = (typeof context?.getImageElement === 'function' ? context.getImageElement() : null) || context?.imageElement;
+                        imgEl?.removeAttribute?.('data-sb-image-presentation');
+
+                        if (typeof context.setMetadata === 'function') {
+                            try { await context.setMetadata('smartcrop.crop', null); } catch (e) {}
+                        } else if (typeof context.setValue === 'function') {
+                            try { await context.setValue('ext.smartcrop.crop', null); } catch (e) {}
+                        }
+                        if (context.resource) {
+                            delete context.resource.imageCrop;
+                            delete context.resource.crop;
+                        }
+                        const curUrl = context.imageUrl || SmartCropManager.resolveResourceThumbnailUrl(context);
+                        const initialSource = context.getAddress?.() || context.resource?.id || curUrl || '';
+                        const isImageResource = context.resource?.type === 'image'
+                            || (typeof initialSource === 'string' && (initialSource.includes('#joomlaImage://') || initialSource.startsWith('image/')));
+
+                        if (isImageResource && typeof context.setAddress === 'function') {
+                            const currentAddr = context.getAddress?.() || context.resource?.id || '';
+                            const cleanJoomlaUri = SmartCropModalController.prototype.removeCropFromUri.call(null, currentAddr)
+                                || currentAddr.split('#')[0].split('?')[0];
+                            try { await context.setAddress(cleanJoomlaUri); } catch (e) {}
+                            SmartCropManager.syncDirectToJoomlaFields(context, { uri: cleanJoomlaUri }, null);
+                        } else {
+                            SmartCropManager.syncDirectToJoomlaFields(context, null, null);
+                        }
+
+                        if (typeof context.notifyPresentationChange === 'function') {
+                            try {
+                                context.notifyPresentationChange({ reason: 'reset' });
+                            } catch (e) {}
+                        }
+                    },
+                    apply: (image, context) => {
+                        if (!image || image.getAttribute?.('data-sb-image-presentation') === 'server') {
+                            return;
+                        }
+                        const imgUrl = context?.imageUrl || SmartCropManager.resolveResourceThumbnailUrl(context);
+                        const cropObj = SmartCropManager.getActiveCrop(context, imgUrl);
+                        const crop = cropObj?.crop || cropObj;
+                        if (!crop || !crop.width || !crop.height) return;
+
+                        let rw = 4;
+                        let rh = 3;
+                        const ratio = cropObj?.ratio;
+                        if (ratio && typeof ratio === 'object') {
+                            rw = Number(ratio.width) || 4;
+                            rh = Number(ratio.height) || 3;
+                        } else if (typeof ratio === 'number' && ratio > 0) {
+                            if (Math.abs(ratio - 16 / 9) < 0.05) { rw = 16; rh = 9; }
+                            else if (Math.abs(ratio - 4 / 3) < 0.05) { rw = 4; rh = 3; }
+                            else if (Math.abs(ratio - 1) < 0.05) { rw = 1; rh = 1; }
+                            else if (Math.abs(ratio - 3 / 2) < 0.05) { rw = 3; rh = 2; }
+                            else { rw = Math.round(ratio * 100); rh = 100; }
+                        } else if (typeof ratio === 'string' && /[:/xX_]/.test(ratio)) {
+                            const parts = ratio.replace(/[xX/_]/g, ':').split(':');
+                            rw = parseFloat(parts[0]) || 4;
+                            rh = parseFloat(parts[1]) || 3;
+                        }
+
+                        // Normalize coordinates
+                        let normX = Number(crop?.x) || 0;
+                        let normY = Number(crop?.y) || 0;
+                        let normW = Number(crop?.width) || 1;
+                        let normH = Number(crop?.height) || 1;
+
+                        if (normW <= 1.0001 && normX >= -0.0001) {
+                            normX = Math.max(0, Math.min(1, normX));
+                            normW = Math.max(0.0001, Math.min(1 - normX, normW));
+                        } else {
+                            normW = Math.max(0.0001, Math.min(25.0, normW));
+                            normX = Math.max(-25.0, Math.min(1.0, normX));
+                        }
+
+                        if (normH <= 1.0001 && normY >= -0.0001) {
+                            normY = Math.max(0, Math.min(1, normY));
+                            normH = Math.max(0.0001, Math.min(1 - normY, normH));
+                        } else {
+                            normH = Math.max(0.0001, Math.min(25.0, normH));
+                            normY = Math.max(-25.0, Math.min(1.0, normY));
+                        }
+
+                        const scaleX = 1.0 / normW;
+                        const scaleY = 1.0 / normH;
+                        const widthPct  = (scaleX * 100.0).toFixed(4);
+                        const heightPct = (scaleY * 100.0).toFixed(4);
+                        const leftPct   = (-(normX / normW) * 100.0).toFixed(4);
+                        const topPct    = (-(normY / normH) * 100.0).toFixed(4);
+
+                        const aspectVal = `${rw} / ${rh}`;
+                        image.style.setProperty('aspect-ratio', aspectVal);
+                        image.style.setProperty('position', 'absolute', 'important');
+                        image.style.setProperty('left', `${leftPct}%`, 'important');
+                        image.style.setProperty('top', `${topPct}%`, 'important');
+                        image.style.setProperty('width', `${widthPct}%`, 'important');
+                        image.style.setProperty('height', `${heightPct}%`, 'important');
+                        image.style.setProperty('max-width', 'none', 'important');
+                        image.style.setProperty('max-height', 'none', 'important');
+                        image.style.setProperty('object-fit', 'fill', 'important');
+                        image.style.setProperty('pointer-events', 'none', 'important');
+
+                        if (typeof context.notifyPresentationChange === 'function') {
+                            try {
+                                context.notifyPresentationChange({ reason: 'aspect-ratio' });
+                            } catch (e) {}
+                        }
+
+                        return () => {
+                            // Declared styles are automatically restored by SmartBrowser on cleanup
+                        };
+                    }
+                });
+
+                window._smartcropSbPresentationRegistered = true;
+                return true;
+            } catch (e) {
+                console.warn('[SmartCrop] registerImagePresentation error:', e);
+                return false;
+            }
+        };
+
+        if (doRegister()) return;
+
+        let retries = 0;
+        const interval = setInterval(() => {
+            retries++;
+            if (doRegister() || retries > 30) {
+                clearInterval(interval);
+            }
+        }, 100);
     }
 
     static registerSmartBrowserVisualOverlay() {
@@ -2778,14 +3526,16 @@ class SmartCropManager {
                         if (!context || !context.resource) {
                             return false;
                         }
-                        // Never apply overlay on native Joomla media fields (image_intro, image_fulltext, etc.)
-                        // Those fields are already fully handled by SmartCrop's preview scissors button!
+                        // Never apply overlay when SmartBrowser explicitly declares native preview
                         if (context.nativePreview) {
                             return false;
                         }
-                        if (context.fieldElement?.hasAttribute?.('data-sb-article-media') ||
-                            context.fieldElement?.querySelector?.('.sb-native-preview-host, joomla-field-media') ||
-                            context.fieldElement?.closest?.('.sb-native-preview-host, .sb-article-image-field, joomla-field-media')) {
+                        // Only exclude if genuinely a native article-media field with an attached joomla-field-media
+                        if (context.fieldElement?.hasAttribute?.('data-sb-article-media') &&
+                            context.fieldElement?.querySelector?.('.sb-native-preview-host > joomla-field-media')) {
+                            return false;
+                        }
+                        if (context.fieldElement?.closest?.('.sb-article-image-field, joomla-field-media')) {
                             return false;
                         }
                         // Support ANY resource that has a resolvable image thumbnail
@@ -2794,8 +3544,11 @@ class SmartCropManager {
                     },
                     mount(layer, context) {
                         SmartCropManager.registerSelectionAddressCodec();
+                        let currentContext = context;
                         const visual = layer.closest('.resource-lightweight-visual');
+                        const area = visual?.closest('.resource-lightweight-area');
                         const doc = layer.ownerDocument || document;
+                        SmartCropManager.ensureStylesInDocument(doc);
 
                         // Create scissors preview button matching native Joomla media field style
                         const btn = doc.createElement('button');
@@ -2808,33 +3561,44 @@ class SmartCropManager {
                         let clipImg = null;
                         let ghost = null;
                         let resizeObserver = null;
+                        let visualObserver = null;
 
-                        const getActiveCrop = () => {
-                            let crop = context.getMetadata?.('smartcrop.crop');
-                            if (crop) return crop;
-                            const allMeta = context.getMetadata?.();
-                            if (allMeta?.['smartcrop.crop']) return allMeta['smartcrop.crop'];
-                            if (allMeta?.['crop']) return allMeta['crop'];
-                            const values = (typeof context.getValues === 'function' ? context.getValues() : context.values) || {};
-                            if (values?.['smartcrop.crop']) return values['smartcrop.crop'];
-                            if (values?.['ext.smartcrop.crop']) return values['ext.smartcrop.crop'];
-                            if (values?.['crop']) return values['crop'];
-                            if (context.resource?.imageCrop) return context.resource.imageCrop;
-                            // Only check URI query parameter for image-type resources
-                            if (context.resource?.type === 'image') {
-                                const addr = context.getAddress?.() || context.resource?.id || '';
-                                if (typeof addr === 'string' && addr.includes('crop=')) {
-                                    return SmartCropManager.extractCropFromValue(addr);
-                                }
+                        const hasImagePresentation = typeof window.SmartBrowserPicker?.registerImagePresentation === 'function';
+
+                        const updateGhostPosition = () => {
+                            if (!ghost) return;
+                            const curCtx = currentContext || context;
+                            const primaryImg = (typeof curCtx.getImageElement === 'function' ? curCtx.getImageElement() : null)
+                                || curCtx.imageElement
+                                || visual?.querySelector('img:not(.smartcrop-preview-ghost):not(.smartcrop-cropped-preview)');
+                            if (!primaryImg) return;
+
+                            const imgRect = primaryImg.getBoundingClientRect();
+                            const layerRect = layer.getBoundingClientRect();
+                            if (imgRect.width > 0 && imgRect.height > 0) {
+                                ghost.style.setProperty('position', 'absolute', 'important');
+                                ghost.style.setProperty('left', `${imgRect.left - layerRect.left}px`, 'important');
+                                ghost.style.setProperty('top', `${imgRect.top - layerRect.top}px`, 'important');
+                                ghost.style.setProperty('width', `${imgRect.width}px`, 'important');
+                                ghost.style.setProperty('height', `${imgRect.height}px`, 'important');
+                                ghost.style.setProperty('object-fit', 'fill', 'important');
+                                ghost.style.setProperty('pointer-events', 'none', 'important');
+                                ghost.style.setProperty('z-index', '0', 'important');
                             }
-                            return null;
                         };
 
                         const getImageUrl = () => {
-                            return SmartCropManager.resolveResourceThumbnailUrl(context, visual);
+                            const ctx = currentContext || context;
+                            return SmartCropManager.resolveResourceThumbnailUrl(ctx, visual);
+                        };
+
+                        const getActiveCrop = () => {
+                            const ctx = currentContext || context;
+                            return SmartCropManager.getActiveCrop(ctx, getImageUrl());
                         };
 
                         const syncFraming = () => {
+                            const ctx = currentContext || context;
                             let cropObj = getActiveCrop();
                             if (typeof cropObj === 'string' && (cropObj.startsWith('{') || cropObj.includes('crop='))) {
                                 try {
@@ -2870,133 +3634,362 @@ class SmartCropManager {
                                 else if (Math.abs(ratio - 1) < 0.05) { rw = 1; rh = 1; }
                                 else if (Math.abs(ratio - 3 / 2) < 0.05) { rw = 3; rh = 2; }
                                 else { rw = Math.round(ratio * 100); rh = 100; }
-                            } else if (typeof ratio === 'string' && ratio.includes(':')) {
-                                const parts = ratio.split(':');
+                            } else if (typeof ratio === 'string' && /[:/xX_]/.test(ratio)) {
+                                const parts = ratio.replace(/[xX/_]/g, ':').split(':');
                                 rw = parseFloat(parts[0]) || 4;
                                 rh = parseFloat(parts[1]) || 3;
                             }
                             const ratioText = `${rw}:${rh}`;
                             const vueImg = visual?.querySelector('img:not(.smartcrop-preview-ghost):not(.smartcrop-cropped-preview)');
 
-                            btn.disabled = !!context.isReadOnly;
+                            btn.disabled = !!ctx.isReadOnly;
+                            if (!isCropped && ctx.isReadOnly) {
+                                btn.style.setProperty('display', 'none', 'important');
+                            } else {
+                                btn.style.removeProperty('display');
+                            }
+
+                            // Normalize coordinates
+                            let normX = Number(crop?.x) || 0;
+                            let normY = Number(crop?.y) || 0;
+                            let normW = Number(crop?.width) || 1;
+                            let normH = Number(crop?.height) || 1;
+
+                            if (normW <= 1.0001 && normX >= -0.0001) {
+                                normX = Math.max(0, Math.min(1, normX));
+                                normW = Math.max(0.0001, Math.min(1 - normX, normW));
+                            } else {
+                                normW = Math.max(0.0001, Math.min(25.0, normW));
+                                normX = Math.max(-25.0, Math.min(1.0, normX));
+                            }
+
+                            if (normH <= 1.0001 && normY >= -0.0001) {
+                                normY = Math.max(0, Math.min(1, normY));
+                                normH = Math.max(0.0001, Math.min(1 - normY, normH));
+                            } else {
+                                normH = Math.max(0.0001, Math.min(25.0, normH));
+                                normY = Math.max(-25.0, Math.min(1.0, normY));
+                            }
+
+                            const scaleX = 1.0 / normW;
+                            const scaleY = 1.0 / normH;
+                            const widthPct  = (scaleX * 100.0).toFixed(4);
+                            const heightPct = (scaleY * 100.0).toFixed(4);
+                            const leftPct   = (-(normX / normW) * 100.0).toFixed(4);
+                            const topPct    = (-(normY / normH) * 100.0).toFixed(4);
+
+                            const assetImageLayer = visual?.querySelector('.resource-visual-layer.asset-image') || vueImg?.closest('.resource-visual-layer');
+                            const assetBaseLayer = visual?.querySelector('.resource-visual-layer.asset-base');
+                            const visualContent = visual?.querySelector('.resource-visual-content');
+                            const badge = visual?.querySelector('.resource-visual-layer.resource-node-visual-symbol, .resource-visual-layer.style-badge, .resource-visual-layer.asset-identity');
+
+                            if (hasImagePresentation) {
+                                if (frame) {
+                                    frame.remove();
+                                    frame = null;
+                                    clip = null;
+                                    clipImg = null;
+                                }
+
+                                if (isCropped) {
+                                    btn.className = 'smartcrop-preview-btn is-cropped selected';
+                                    btn.title = ctx.isReadOnly
+                                        ? `Κάδρο (${ratioText}) [Μόνο για ανάγνωση] — Hover για ολόκληρη εικόνα`
+                                        : `Επεξεργασία κάδρου (${ratioText}) — Hover για ολόκληρη εικόνα`;
+                                    btn.setAttribute('aria-label', `Κάδρο (${ratioText})`);
+                                    btn.innerHTML = `<span class="icon-scissors fas fa-crop-simple" aria-hidden="true"></span> <span>${ratioText}</span>`;
+
+                                    if (!ghost) {
+                                        ghost = doc.createElement('img');
+                                        ghost.className = 'smartcrop-preview-ghost';
+                                        ghost.alt = '';
+                                        ghost.setAttribute('aria-hidden', 'true');
+                                        ghost.draggable = false;
+                                        layer.appendChild(ghost);
+                                    }
+                                    if (imgUrl && ghost.src !== imgUrl) {
+                                        ghost.src = imgUrl;
+                                    }
+                                    updateGhostPosition();
+                                } else {
+                                    btn.className = 'smartcrop-preview-btn';
+                                    btn.title = ctx.isReadOnly ? 'Ορισμός κάδρου (4:3) [Μόνο για ανάγνωση]' : 'Ορισμός κάδρου (4:3)';
+                                    btn.setAttribute('aria-label', btn.title);
+                                    btn.innerHTML = '<span class="icon-scissors fas fa-crop-simple" aria-hidden="true"></span> <span>4:3</span>';
+
+                                    if (ghost) {
+                                        ghost.remove();
+                                        ghost = null;
+                                    }
+                                    if (visual) {
+                                        visual.classList.remove('is-revealing-ghost');
+                                    }
+                                    if (area) {
+                                        area.classList.remove('is-revealing-ghost');
+                                    }
+                                    layer.classList.remove('is-expanded-overlay', 'is-revealing-ghost');
+                                }
+                                return;
+                            }
 
                             if (isCropped) {
-                                btn.className = 'smartcrop-preview-btn is-cropped';
-                                btn.title = context.isReadOnly
+                                btn.className = 'smartcrop-preview-btn is-cropped selected';
+                                btn.title = ctx.isReadOnly
                                     ? `Κάδρο (${ratioText}) [Μόνο για ανάγνωση] — Hover για ολόκληρη εικόνα`
                                     : `Επεξεργασία κάδρου (${ratioText}) — Hover για ολόκληρη εικόνα`;
                                 btn.setAttribute('aria-label', `Κάδρο (${ratioText})`);
                                 btn.innerHTML = `<span class="icon-scissors fas fa-crop-simple" aria-hidden="true"></span> <span>${ratioText}</span>`;
 
-                                if (!frame) {
-                                    frame = doc.createElement('div');
-                                    frame.className = 'smartcrop-preview-frame is-cropped';
-
-                                    clip = doc.createElement('div');
-                                    clip.className = 'smartcrop-preview-clip';
-
-                                    clipImg = doc.createElement('img');
-                                    clipImg.className = 'smartcrop-cropped-preview';
-                                    clipImg.alt = '';
-                                    clipImg.draggable = false;
-                                    clip.appendChild(clipImg);
-
-                                    ghost = doc.createElement('img');
-                                    ghost.className = 'smartcrop-preview-ghost';
-                                    ghost.alt = '';
-                                    ghost.setAttribute('aria-hidden', 'true');
-                                    ghost.draggable = false;
-
-                                    frame.appendChild(ghost);
-                                    frame.appendChild(clip);
-                                    layer.insertBefore(frame, btn);
-                                }
-
-                                if (imgUrl) {
-                                    if (clipImg.src !== imgUrl) clipImg.src = imgUrl;
-                                    if (ghost.src !== imgUrl) ghost.src = imgUrl;
-                                }
-
-                                // Normalize coordinates
-                                let normX = Number(crop.x) || 0;
-                                let normY = Number(crop.y) || 0;
-                                let normW = Number(crop.width) || 1;
-                                let normH = Number(crop.height) || 1;
-
-                                if (normW <= 1.0001 && normX >= -0.0001) {
-                                    normX = Math.max(0, Math.min(1, normX));
-                                    normW = Math.max(0.0001, Math.min(1 - normX, normW));
-                                } else {
-                                    normW = Math.max(0.0001, Math.min(25.0, normW));
-                                    normX = Math.max(-25.0, Math.min(1.0, normX));
-                                }
-
-                                if (normH <= 1.0001 && normY >= -0.0001) {
-                                    normY = Math.max(0, Math.min(1, normY));
-                                    normH = Math.max(0.0001, Math.min(1 - normY, normH));
-                                } else {
-                                    normH = Math.max(0.0001, Math.min(25.0, normH));
-                                    normY = Math.max(-25.0, Math.min(1.0, normY));
-                                }
-
-                                const scaleX = 1.0 / normW;
-                                const scaleY = 1.0 / normH;
-                                const widthPct  = (scaleX * 100.0).toFixed(4);
-                                const heightPct = (scaleY * 100.0).toFixed(4);
-                                const leftPct   = (-(normX / normW) * 100.0).toFixed(4);
-                                const topPct    = (-(normY / normH) * 100.0).toFixed(4);
-
-                                // Fit frame aspect ratio to layer bounds
-                                const layerW = layer.clientWidth || visual?.clientWidth || 150;
-                                const layerH = layer.clientHeight || visual?.clientHeight || 150;
                                 const cropAspect = rw / rh;
 
-                                let frameW = layerW;
-                                let frameH = Math.round(layerW / cropAspect);
-                                if (frameH > layerH) {
-                                    frameH = layerH;
-                                    frameW = Math.round(layerH * cropAspect);
-                                }
-                                const leftOffset = Math.max(0, Math.round((layerW - frameW) / 2));
-                                const topOffset  = Math.max(0, Math.round((layerH - frameH) / 2));
+                                if (assetImageLayer && vueImg) {
+                                    // Direct styling of native SmartBrowser visual layers: sets percentage variables and crop styles
+                                    const cardMax = 92;
+                                    let cardW = cardMax;
+                                    let cardH = Math.round((cardMax / cropAspect) * 100) / 100;
+                                    let cardX = Math.round(((100 - cardW) / 2) * 100) / 100;
+                                    let cardY = Math.round(((100 - cardH) / 2) * 100) / 100;
+                                    if (cardH > cardMax) {
+                                        cardH = cardMax;
+                                        cardW = Math.round((cardMax * cropAspect) * 100) / 100;
+                                        cardX = Math.round(((100 - cardW) / 2) * 100) / 100;
+                                        cardY = Math.round(((100 - cardH) / 2) * 100) / 100;
+                                    }
 
-                                frame.style.setProperty('position', 'absolute', 'important');
-                                frame.style.setProperty('left', `${leftOffset}px`, 'important');
-                                frame.style.setProperty('top', `${topOffset}px`, 'important');
-                                frame.style.setProperty('width', `${frameW}px`, 'important');
-                                frame.style.setProperty('height', `${frameH}px`, 'important');
+                                    // 1. Set SmartBrowser native layer CSS variables on assetImageLayer
+                                    assetImageLayer.classList.add('has-image-crop');
+                                    assetImageLayer.style.setProperty('--sb-visual-width', `${cardW}%`, 'important');
+                                    assetImageLayer.style.setProperty('--sb-visual-height', `${cardH}%`, 'important');
+                                    assetImageLayer.style.setProperty('--sb-visual-x', `${cardX}%`, 'important');
+                                    assetImageLayer.style.setProperty('--sb-visual-y', `${cardY}%`, 'important');
+                                    assetImageLayer.style.setProperty('--sb-crop-x', `${leftPct}%`, 'important');
+                                    assetImageLayer.style.setProperty('--sb-crop-y', `${topPct}%`, 'important');
+                                    assetImageLayer.style.setProperty('--sb-crop-width', `${widthPct}%`, 'important');
+                                    assetImageLayer.style.setProperty('--sb-crop-height', `${heightPct}%`, 'important');
+                                    assetImageLayer.style.setProperty('overflow', 'hidden', 'important');
+                                    assetImageLayer.style.setProperty('z-index', '2', 'important');
 
-                                clipImg.style.setProperty('position', 'absolute', 'important');
-                                clipImg.style.setProperty('left', `${leftPct}%`, 'important');
-                                clipImg.style.setProperty('top', `${topPct}%`, 'important');
-                                clipImg.style.setProperty('width', `${widthPct}%`, 'important');
-                                clipImg.style.setProperty('height', `${heightPct}%`, 'important');
-                                clipImg.style.setProperty('object-fit', 'fill', 'important');
+                                    // 2. Base card (asset-base): shapes background card identically to 4:3
+                                    if (assetBaseLayer) {
+                                        assetBaseLayer.style.setProperty('--sb-visual-width', `${cardW}%`, 'important');
+                                        assetBaseLayer.style.setProperty('--sb-visual-height', `${cardH}%`, 'important');
+                                        assetBaseLayer.style.setProperty('--sb-visual-x', `${cardX}%`, 'important');
+                                        assetBaseLayer.style.setProperty('--sb-visual-y', `${cardY}%`, 'important');
+                                        assetBaseLayer.style.setProperty('z-index', '1', 'important');
+                                    }
 
-                                ghost.style.setProperty('position', 'absolute', 'important');
-                                ghost.style.setProperty('left', `${leftPct}%`, 'important');
-                                ghost.style.setProperty('top', `${topPct}%`, 'important');
-                                ghost.style.setProperty('width', `${widthPct}%`, 'important');
-                                ghost.style.setProperty('height', `${heightPct}%`, 'important');
-                                ghost.style.setProperty('object-fit', 'fill', 'important');
+                                    // 3. Direct crop styles on the <img> element
+                                    vueImg.style.setProperty('position', 'absolute', 'important');
+                                    vueImg.style.setProperty('left', `${leftPct}%`, 'important');
+                                    vueImg.style.setProperty('top', `${topPct}%`, 'important');
+                                    vueImg.style.setProperty('width', `${widthPct}%`, 'important');
+                                    vueImg.style.setProperty('height', `${heightPct}%`, 'important');
+                                    vueImg.style.setProperty('max-width', 'none', 'important');
+                                    vueImg.style.setProperty('max-height', 'none', 'important');
+                                    vueImg.style.setProperty('object-fit', 'fill', 'important');
+                                    vueImg.style.setProperty('opacity', '1', 'important');
+                                    vueImg.style.setProperty('pointer-events', 'none', 'important');
 
-                                if (vueImg) {
-                                    vueImg.style.setProperty('opacity', '0', 'important');
-                                }
-                                if (visual) {
-                                    visual.classList.add('smartcrop-preview-frame', 'is-cropped');
+                                    // 4. Badge anchoring at bottom-right corner of the cropped card
+                                    if (badge) {
+                                        const bW = (badge.offsetWidth && visualContent?.offsetWidth)
+                                            ? Math.round((badge.offsetWidth / visualContent.offsetWidth) * 100)
+                                            : 22;
+                                        const bH = (badge.offsetHeight && visualContent?.offsetHeight)
+                                            ? Math.round((badge.offsetHeight / visualContent.offsetHeight) * 100)
+                                            : 22;
+                                        const badgeX = Math.max(0, Math.min(100 - bW, Math.round(cardX + cardW - bW * 0.75)));
+                                        const badgeY = Math.max(0, Math.min(100 - bH, Math.round(cardY + cardH - bH * 0.75)));
+                                        badge.style.setProperty('--sb-visual-x', `${badgeX}%`, 'important');
+                                        badge.style.setProperty('--sb-visual-y', `${badgeY}%`, 'important');
+                                        badge.style.setProperty('z-index', '25', 'important');
+                                        badge.style.setProperty('pointer-events', 'none', 'important');
+                                    }
+
+                                    if (frame) {
+                                        frame.remove();
+                                        frame = null;
+                                        clip = null;
+                                        clipImg = null;
+                                        if (ghost) {
+                                            ghost.remove();
+                                            ghost = null;
+                                        }
+                                    }
+
+                                    if (!ghost) {
+                                        ghost = doc.createElement('img');
+                                        ghost.className = 'smartcrop-preview-ghost';
+                                        ghost.alt = '';
+                                        ghost.setAttribute('aria-hidden', 'true');
+                                        ghost.draggable = false;
+                                        layer.appendChild(ghost);
+                                    }
+                                    if (imgUrl && ghost.src !== imgUrl) ghost.src = imgUrl;
+
+                                    // Ghost Alignment relative to layer / visualContent
+                                    const cRect = visualContent?.getBoundingClientRect();
+                                    const lRect = layer.getBoundingClientRect();
+                                    const contentLeft = (cRect && lRect) ? Math.max(0, cRect.left - lRect.left) : 0;
+                                    const contentTop  = (cRect && lRect) ? Math.max(0, cRect.top - lRect.top) : 0;
+                                    const contentW    = (cRect && cRect.width > 0) ? cRect.width : (layer.clientWidth || 150);
+                                    const contentH    = (cRect && cRect.height > 0) ? cRect.height : (layer.clientHeight || 150);
+
+                                    const cardPixelX = contentLeft + (cardX / 100) * contentW;
+                                    const cardPixelY = contentTop + (cardY / 100) * contentH;
+                                    const cardPixelW = (cardW / 100) * contentW;
+                                    const cardPixelH = (cardH / 100) * contentH;
+
+                                    const ghostW = Math.round(cardPixelW * scaleX);
+                                    const ghostH = Math.round(cardPixelH * scaleY);
+                                    const ghostLeft = Math.round(cardPixelX - (normX / normW) * cardPixelW);
+                                    const ghostTop  = Math.round(cardPixelY - (normY / normH) * cardPixelH);
+
+                                    ghost.style.setProperty('position', 'absolute', 'important');
+                                    ghost.style.setProperty('left', `${ghostLeft}px`, 'important');
+                                    ghost.style.setProperty('top', `${ghostTop}px`, 'important');
+                                    ghost.style.setProperty('width', `${ghostW}px`, 'important');
+                                    ghost.style.setProperty('height', `${ghostH}px`, 'important');
+                                    ghost.style.setProperty('object-fit', 'fill', 'important');
+                                    ghost.style.setProperty('pointer-events', 'none', 'important');
+                                    ghost.style.setProperty('z-index', '0', 'important');
+                                } else {
+                                    // Fallback: visual does not have separate asset layers
+                                    const visualW = visual?.clientWidth || layer.clientWidth || 150;
+                                    const visualH = visual?.clientHeight || layer.clientHeight || 150;
+                                    let frameW = visualW;
+                                    let frameH = Math.round(visualW / cropAspect);
+                                    if (frameH > visualH) {
+                                        frameH = visualH;
+                                        frameW = Math.round(visualH * cropAspect);
+                                    }
+                                    if (visual?.closest('.resource-info-panel')) {
+                                        const maxW = Math.min(visualW, 140);
+                                        const maxH = Math.min(visualH, 108);
+                                        frameW = maxW;
+                                        frameH = Math.round(maxW / cropAspect);
+                                        if (frameH > maxH) {
+                                            frameH = maxH;
+                                            frameW = Math.round(maxH * cropAspect);
+                                        }
+                                    }
+                                    const leftOffset = Math.max(0, Math.round((visualW - frameW) / 2));
+                                    const topOffset  = Math.max(0, Math.round((visualH - frameH) / 2));
+
+                                    if (!frame) {
+                                        if (ghost) {
+                                            ghost.remove();
+                                            ghost = null;
+                                        }
+                                        frame = doc.createElement('div');
+                                        frame.className = 'smartcrop-preview-frame is-cropped';
+
+                                        clip = doc.createElement('div');
+                                        clip.className = 'smartcrop-preview-clip';
+
+                                        clipImg = doc.createElement('img');
+                                        clipImg.className = 'smartcrop-cropped-preview';
+                                        clipImg.alt = '';
+                                        clipImg.draggable = false;
+                                        clip.appendChild(clipImg);
+
+                                        ghost = doc.createElement('img');
+                                        ghost.className = 'smartcrop-preview-ghost';
+                                        ghost.alt = '';
+                                        ghost.setAttribute('aria-hidden', 'true');
+                                        ghost.draggable = false;
+
+                                        frame.appendChild(ghost);
+                                        frame.appendChild(clip);
+                                        layer.appendChild(frame);
+                                    }
+
+                                    if (imgUrl) {
+                                        if (clipImg.src !== imgUrl) clipImg.src = imgUrl;
+                                        if (ghost.src !== imgUrl) ghost.src = imgUrl;
+                                    }
+
+                                    frame.style.setProperty('position', 'absolute', 'important');
+                                    frame.style.setProperty('left', `${leftOffset}px`, 'important');
+                                    frame.style.setProperty('top', `${topOffset}px`, 'important');
+                                    frame.style.setProperty('width', `${frameW}px`, 'important');
+                                    frame.style.setProperty('height', `${frameH}px`, 'important');
+                                    frame.style.setProperty('pointer-events', 'none', 'important');
+
+                                    clipImg.style.setProperty('position', 'absolute', 'important');
+                                    clipImg.style.setProperty('left', `${leftPct}%`, 'important');
+                                    clipImg.style.setProperty('top', `${topPct}%`, 'important');
+                                    clipImg.style.setProperty('width', `${widthPct}%`, 'important');
+                                    clipImg.style.setProperty('height', `${heightPct}%`, 'important');
+                                    clipImg.style.setProperty('object-fit', 'fill', 'important');
+                                    clipImg.style.setProperty('pointer-events', 'none', 'important');
+
+                                    ghost.style.setProperty('position', 'absolute', 'important');
+                                    ghost.style.setProperty('left', `${leftPct}%`, 'important');
+                                    ghost.style.setProperty('top', `${topPct}%`, 'important');
+                                    ghost.style.setProperty('width', `${widthPct}%`, 'important');
+                                    ghost.style.setProperty('height', `${heightPct}%`, 'important');
+                                    ghost.style.setProperty('object-fit', 'fill', 'important');
+                                    ghost.style.setProperty('pointer-events', 'none', 'important');
+
+                                    if (vueImg) {
+                                        vueImg.style.setProperty('opacity', '0', 'important');
+                                    }
                                 }
                             } else {
                                 btn.className = 'smartcrop-preview-btn';
-                                btn.title = context.isReadOnly ? 'Ορισμός κάδρου (4:3) [Μόνο για ανάγνωση]' : 'Ορισμός κάδρου (4:3)';
+                                btn.title = ctx.isReadOnly ? 'Ορισμός κάδρου (4:3) [Μόνο για ανάγνωση]' : 'Ορισμός κάδρου (4:3)';
                                 btn.setAttribute('aria-label', btn.title);
                                 btn.innerHTML = '<span class="icon-scissors fas fa-crop-simple" aria-hidden="true"></span> <span>4:3</span>';
+
+                                if (assetImageLayer) {
+                                    assetImageLayer.classList.remove('has-image-crop');
+                                    assetImageLayer.style.removeProperty('--sb-visual-width');
+                                    assetImageLayer.style.removeProperty('--sb-visual-height');
+                                    assetImageLayer.style.removeProperty('--sb-visual-x');
+                                    assetImageLayer.style.removeProperty('--sb-visual-y');
+                                    assetImageLayer.style.removeProperty('--sb-crop-x');
+                                    assetImageLayer.style.removeProperty('--sb-crop-y');
+                                    assetImageLayer.style.removeProperty('--sb-crop-width');
+                                    assetImageLayer.style.removeProperty('--sb-crop-height');
+                                    assetImageLayer.style.removeProperty('overflow');
+                                    assetImageLayer.style.removeProperty('z-index');
+                                }
+                                if (assetBaseLayer) {
+                                    assetBaseLayer.style.removeProperty('--sb-visual-width');
+                                    assetBaseLayer.style.removeProperty('--sb-visual-height');
+                                    assetBaseLayer.style.removeProperty('--sb-visual-x');
+                                    assetBaseLayer.style.removeProperty('--sb-visual-y');
+                                    assetBaseLayer.style.removeProperty('z-index');
+                                }
+                                if (vueImg) {
+                                    vueImg.style.removeProperty('position');
+                                    vueImg.style.removeProperty('left');
+                                    vueImg.style.removeProperty('top');
+                                    vueImg.style.removeProperty('width');
+                                    vueImg.style.removeProperty('height');
+                                    vueImg.style.removeProperty('max-width');
+                                    vueImg.style.removeProperty('max-height');
+                                    vueImg.style.removeProperty('object-fit');
+                                    vueImg.style.removeProperty('opacity');
+                                    vueImg.style.removeProperty('pointer-events');
+                                }
+                                if (badge) {
+                                    badge.style.removeProperty('--sb-visual-x');
+                                    badge.style.removeProperty('--sb-visual-y');
+                                    badge.style.removeProperty('z-index');
+                                    badge.style.removeProperty('pointer-events');
+                                }
 
                                 if (frame) {
                                     frame.remove();
                                     frame = null;
                                     clip = null;
                                     clipImg = null;
+                                }
+
+                                if (ghost) {
+                                    ghost.remove();
                                     ghost = null;
                                 }
 
@@ -3004,41 +3997,55 @@ class SmartCropManager {
                                     vueImg.style.removeProperty('opacity');
                                 }
                                 if (visual) {
-                                    visual.classList.remove('smartcrop-preview-frame', 'is-cropped', 'is-revealing-ghost');
+                                    visual.classList.remove('is-revealing-ghost');
+                                }
+                                if (area) {
+                                    area.classList.remove('is-revealing-ghost');
                                 }
                                 layer.classList.remove('is-expanded-overlay', 'is-revealing-ghost');
                             }
                         };
 
-                        // Hover preview revealing uncropped ghost behind green crop outline
+                        // Hover preview revealing uncropped ghost behind crop outline without flickering
+                        let isHovering = false;
                         const onHoverEnter = () => {
-                            if (layer.querySelector('.smartcrop-preview-frame.is-cropped')) {
+                            isHovering = true;
+                            if (ghost || frame || layer.querySelector('.smartcrop-preview-frame.is-cropped')) {
+                                if (hasImagePresentation && ghost) {
+                                    updateGhostPosition();
+                                }
                                 layer.classList.add('is-expanded-overlay', 'is-revealing-ghost');
                                 if (visual) visual.classList.add('is-revealing-ghost');
+                                if (area) area.classList.add('is-revealing-ghost');
                             }
                         };
                         const onHoverLeave = () => {
+                            isHovering = false;
                             layer.classList.remove('is-expanded-overlay', 'is-revealing-ghost');
                             if (visual) visual.classList.remove('is-revealing-ghost');
+                            if (area) area.classList.remove('is-revealing-ghost');
                         };
 
                         btn.addEventListener('mouseenter', onHoverEnter);
                         btn.addEventListener('mouseleave', onHoverLeave);
-                        btn.addEventListener('focus', onHoverEnter);
-                        btn.addEventListener('blur', onHoverLeave);
 
                         // Click opens SmartCrop interactive modal
                         btn.addEventListener('click', (e) => {
                             e.preventDefault();
                             e.stopPropagation();
+                            btn.blur();
+                            onHoverLeave();
 
-                            if (context.isReadOnly) return;
+                            const ctx = currentContext || context;
+                            if (ctx.isReadOnly) return;
 
                             const curCrop = getActiveCrop();
                             const curUrl = getImageUrl();
                             if (!curUrl) return;
 
-                            const isImageResource = context.resource?.type === 'image';
+                            const initialSource = ctx.getAddress?.() || ctx.resource?.id || curUrl;
+                            const isImageResource = ctx.resource?.type === 'image'
+                                || (typeof initialSource === 'string' && (initialSource.includes('#joomlaImage://') || initialSource.startsWith('image/')));
 
                             let effectiveCrop = curCrop?.crop || curCrop;
                             let effectiveRatioW = curCrop?.ratio?.width || 4;
@@ -3056,88 +4063,221 @@ class SmartCropManager {
 
                             SmartCropManager.openCustom({
                                 imageUrl: curUrl,
-                                source: isImageResource ? (context.getAddress?.() || context.resource?.id || curUrl) : curUrl,
+                                source: isImageResource ? initialSource : curUrl,
                                 crop: effectiveCrop,
                                 ratioW: effectiveRatioW,
                                 ratioH: effectiveRatioH,
                                 previewElement: visual,
-                                onApply: (result) => {
+                                document: doc,
+                                onApply: async (result) => {
+                                    btn.blur();
+                                    onHoverLeave();
                                     SmartCropManager.registerSelectionAddressCodec();
+                                    const applyCtx = currentContext || context;
+                                    if (applyCtx?.isReadOnly) return;
 
-                                    const cropMetadata = {
-                                        source: curUrl,
-                                        ratio: result.ratio,
-                                        crop: result.crop,
-                                        zoom: result.zoom,
-                                        sourceDimensions: result.sourceDimensions
+                                    const primaryImg = (typeof applyCtx.getImageElement === 'function' ? applyCtx.getImageElement() : null)
+                                        || applyCtx.imageElement
+                                        || visual?.querySelector('img[data-sb-primary-image], img.resource-visual-image, img:not(.smartcrop-preview-ghost):not(.smartcrop-cropped-preview)');
+                                    primaryImg?.removeAttribute?.('data-sb-image-presentation');
+
+                                    const cleanNum = (n, fallback = 0) => {
+                                        const num = Number(n);
+                                        return Number.isFinite(num) ? num : fallback;
                                     };
 
-                                    if (typeof context.setMetadata === 'function') {
-                                        context.setMetadata('smartcrop.crop', cropMetadata);
-                                    } else if (typeof context.setValue === 'function') {
-                                        context.setValue('smartcrop.crop', cropMetadata);
+                                    const rawCrop = result.crop || {};
+                                    const rawRatio = result.ratio || {};
+                                    const rw = cleanNum(typeof rawRatio === 'object' ? rawRatio.width : (String(rawRatio).replace(/[xX/_]/g, ':').split(':')[0]), 4);
+                                    const rh = cleanNum(typeof rawRatio === 'object' ? rawRatio.height : (String(rawRatio).replace(/[xX/_]/g, ':').split(':')[1]), 3);
+                                    const rval = rh > 0 ? Math.round((rw / rh) * 10000) / 10000 : 1.3333;
+                                    const rlabel = (typeof rawRatio === 'object' && rawRatio.label) ? String(rawRatio.label) : `${rw}:${rh}`;
+
+                                    const rawMetadata = {
+                                        source: String(curUrl || initialSource || ''),
+                                        ratio: {
+                                            width: rw,
+                                            height: rh,
+                                            value: rval,
+                                            label: rlabel
+                                        },
+                                        crop: {
+                                            x: cleanNum(rawCrop.x, 0),
+                                            y: cleanNum(rawCrop.y, 0),
+                                            width: Math.max(0.0001, cleanNum(rawCrop.width, 1)),
+                                            height: Math.max(0.0001, cleanNum(rawCrop.height, 1))
+                                        },
+                                        zoom: Math.max(0.05, cleanNum(result.zoom, 1.0))
+                                    };
+
+                                    if (result.sourceDimensions && Number.isFinite(result.sourceDimensions.width) && Number.isFinite(result.sourceDimensions.height)) {
+                                        rawMetadata.sourceDimensions = {
+                                            width: Math.round(result.sourceDimensions.width),
+                                            height: Math.round(result.sourceDimensions.height)
+                                        };
                                     }
 
-                                    // 1. If resource is an image, update address directly with #joomlaImage://...&crop=...
-                                    if (isImageResource && typeof context.setAddress === 'function' && result.uri) {
-                                        context.setAddress(result.uri);
+                                    const targetWin = doc?.defaultView || applyCtx.fieldElement?.ownerDocument?.defaultView || window;
+                                    const realmJson = SmartCropManager.getRealmJson(applyCtx, targetWin);
+                                    const cropMetadata = SmartCropManager.sanitizeJsonMetadata(rawMetadata, realmJson);
+
+                                    if (typeof applyCtx.setMetadata === 'function') {
+                                        try {
+                                            await applyCtx.setMetadata('smartcrop.crop', cropMetadata);
+                                        } catch (e) {
+                                            console.warn('[SmartCrop] setMetadata warning:', e);
+                                        }
+                                    } else if (typeof applyCtx.setValue === 'function') {
+                                        try {
+                                            await applyCtx.setValue('ext.smartcrop.crop', cropMetadata);
+                                        } catch (e) {}
                                     }
 
-                                    // 2. If resource has a thumbnailOverride (e.g. article with custom thumbnail), update its URI with crop
-                                    const values = (typeof context.getValues === 'function' ? context.getValues() : context.values) || {};
-                                    if (values['visual.thumbnailOverride'] && typeof context.setValue === 'function') {
-                                        const currentThumb = values['visual.thumbnailOverride'];
-                                        if (typeof currentThumb === 'string') {
-                                            const updatedThumb = SmartCropManager.appendCropToJoomlaUri(currentThumb, result);
-                                            context.setValue('visual.thumbnailOverride', updatedThumb);
+                                    // Mutate resource descriptor only when legacy fallback without registerImagePresentation is active
+                                    const resourceImage = applyCtx.resource?.image || curUrl || initialSource || '';
+                                    const cropW = Math.max(0.0001, cleanNum(rawCrop.width, 1));
+                                    const cropH = Math.max(0.0001, cleanNum(rawCrop.height, 1));
+                                    const cropX = cleanNum(rawCrop.x, 0);
+                                    const cropY = cleanNum(rawCrop.y, 0);
+
+                                    const sbImageCrop = {
+                                        source: resourceImage,
+                                        ratio: rw / rh,
+                                        x: parseFloat((-(cropX / cropW) * 100.0).toFixed(4)),
+                                        y: parseFloat((-(cropY / cropH) * 100.0).toFixed(4)),
+                                        width: parseFloat(((1.0 / cropW) * 100.0).toFixed(4)),
+                                        height: parseFloat(((1.0 / cropH) * 100.0).toFixed(4)),
+                                        crop: {
+                                            x: cropX,
+                                            y: cropY,
+                                            width: cropW,
+                                            height: cropH
+                                        },
+                                        zoom: Math.max(0.05, cleanNum(result.zoom, 1.0))
+                                    };
+
+                                    if (!hasImagePresentation && applyCtx.resource) {
+                                        applyCtx.resource.imageCrop = sbImageCrop;
+                                        applyCtx.resource.crop = cropMetadata;
+                                    }
+
+                                    // 1. Update address directly if available AND only if isImageResource
+                                    if (isImageResource && typeof applyCtx.setAddress === 'function' && result.uri) {
+                                        try {
+                                            await applyCtx.setAddress(result.uri);
+                                        } catch (e) {
+                                            console.warn('[SmartCrop] setAddress warning:', e);
                                         }
                                     }
 
-                                    if (typeof context.refresh === 'function') {
-                                        context.refresh();
+                                    // 2. Direct Sync to Native Joomla Media Input
+                                    SmartCropManager.syncDirectToJoomlaFields(applyCtx, result, cropMetadata);
+
+                                    if (typeof applyCtx.notifyPresentationChange === 'function') {
+                                        try {
+                                            applyCtx.notifyPresentationChange({ reason: 'aspect-ratio' });
+                                        } catch (e) {}
                                     }
+
                                     syncFraming();
                                 },
-                                onRemove: () => {
+                                onRemove: async () => {
+                                    btn.blur();
+                                    onHoverLeave();
                                     SmartCropManager.registerSelectionAddressCodec();
+                                    const removeCtx = currentContext || context;
+                                    if (removeCtx?.isReadOnly) return;
 
-                                    if (typeof context.setMetadata === 'function') {
-                                        context.setMetadata('smartcrop.crop', null);
-                                    } else if (typeof context.setValue === 'function') {
-                                        context.setValue('smartcrop.crop', null);
+                                    const primaryImg = (typeof removeCtx.getImageElement === 'function' ? removeCtx.getImageElement() : null)
+                                        || removeCtx.imageElement
+                                        || visual?.querySelector('img[data-sb-primary-image], img.resource-visual-image, img:not(.smartcrop-preview-ghost):not(.smartcrop-cropped-preview)');
+                                    primaryImg?.removeAttribute?.('data-sb-image-presentation');
+
+                                    if (typeof removeCtx.setMetadata === 'function') {
+                                        try { await removeCtx.setMetadata('smartcrop.crop', null); } catch (e) {}
+                                    } else if (typeof removeCtx.setValue === 'function') {
+                                        try { await removeCtx.setValue('ext.smartcrop.crop', null); } catch (e) {}
                                     }
 
-                                    if (isImageResource && typeof context.setAddress === 'function') {
-                                        const cleanUri = (context.getAddress?.() || context.resource?.id || curUrl || '').split('#')[0].split('?')[0];
-                                        context.setAddress(cleanUri);
+                                    // Remove crop descriptor from resource
+                                    if (!hasImagePresentation && removeCtx.resource) {
+                                        delete removeCtx.resource.imageCrop;
+                                        delete removeCtx.resource.crop;
                                     }
 
-                                    const values = (typeof context.getValues === 'function' ? context.getValues() : context.values) || {};
-                                    if (values['visual.thumbnailOverride'] && typeof context.setValue === 'function') {
-                                        const currentThumb = values['visual.thumbnailOverride'];
-                                        if (typeof currentThumb === 'string') {
-                                            const cleanThumb = SmartCropManager.cleanCropFromJoomlaUri(currentThumb);
-                                            context.setValue('visual.thumbnailOverride', cleanThumb);
+                                    if (isImageResource) {
+                                        const currentAddr = removeCtx.getAddress?.() || removeCtx.resource?.id || curUrl || '';
+                                        const cleanJoomlaUri = SmartCropModalController.prototype.removeCropFromUri.call(
+                                             null,
+                                             currentAddr
+                                        ) || currentAddr.split('#')[0].split('?')[0];
+
+                                        if (typeof removeCtx.setAddress === 'function') {
+                                            try { await removeCtx.setAddress(cleanJoomlaUri); } catch (e) {}
                                         }
+
+                                        // Direct Sync clean URI to Native Joomla Media Input
+                                        SmartCropManager.syncDirectToJoomlaFields(removeCtx, { uri: cleanJoomlaUri }, null);
+                                    } else {
+                                        // For articles/categories, never touch the resource address on remove
+                                        SmartCropManager.syncDirectToJoomlaFields(removeCtx, null, null);
                                     }
 
-                                    if (typeof context.refresh === 'function') {
-                                        context.refresh();
+                                    if (typeof removeCtx.notifyPresentationChange === 'function') {
+                                        try {
+                                            removeCtx.notifyPresentationChange({ reason: 'reset' });
+                                        } catch (e) {}
                                     }
+
                                     syncFraming();
                                 }
                             });
                         });
 
-                        layer.appendChild(btn);
+                        const actionsHost = context.actionsContainer || visual?.closest('.resource-lightweight-area')?.querySelector('.resource-lightweight-preview-action');
+                        if (actionsHost) {
+                            actionsHost.querySelectorAll('.smartcrop-preview-btn').forEach(oldBtn => oldBtn.remove());
+                            actionsHost.appendChild(btn);
+                        } else {
+                            layer.querySelectorAll('.smartcrop-preview-btn').forEach(oldBtn => oldBtn.remove());
+                            layer.appendChild(btn);
+                        }
                         syncFraming();
 
-                        // Keep framing responsive to container resize
+                        // Keep framing responsive to container resize without thrashing during hover
                         if (typeof ResizeObserver !== 'undefined') {
                             resizeObserver = new ResizeObserver(() => {
-                                syncFraming();
+                                if (!isHovering) {
+                                    syncFraming();
+                                }
                             });
                             resizeObserver.observe(layer);
+                        }
+
+                        // Re-sync if Vue renders or swaps images asynchronously inside visual
+                        if (typeof MutationObserver !== 'undefined' && visual) {
+                            visualObserver = new MutationObserver((mutations) => {
+                                let shouldSync = false;
+                                for (const m of mutations) {
+                                    for (const node of m.addedNodes) {
+                                        if (node.nodeType === 1) {
+                                            if (node.tagName === 'IMG' && !node.classList.contains('smartcrop-preview-ghost') && !node.classList.contains('smartcrop-cropped-preview')) {
+                                                shouldSync = true;
+                                                break;
+                                            }
+                                            if (node.querySelector && node.querySelector('img:not(.smartcrop-preview-ghost):not(.smartcrop-cropped-preview)')) {
+                                                shouldSync = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (shouldSync) break;
+                                }
+                                if (shouldSync && !isHovering) {
+                                    syncFraming();
+                                }
+                            });
+                            visualObserver.observe(visual, { childList: true, subtree: true });
                         }
 
                         // Close editor if overlay signal is aborted
@@ -3148,29 +4288,88 @@ class SmartCropManager {
                         }
 
                         layer._smartcropSyncFraming = syncFraming;
+                        layer._smartcropUpdateContext = (newCtx) => {
+                            currentContext = newCtx;
+                        };
 
                         return () => {
                             if (resizeObserver) {
                                 resizeObserver.disconnect();
                                 resizeObserver = null;
                             }
-                            const vueImg = visual?.querySelector('img:not(.smartcrop-preview-ghost):not(.smartcrop-cropped-preview)');
-                            if (vueImg) {
-                                vueImg.style.removeProperty('opacity');
+                            if (visualObserver) {
+                                visualObserver.disconnect();
+                                visualObserver = null;
+                            }
+                            if (!hasImagePresentation) {
+                                const curVueImg = visual?.querySelector('img:not(.smartcrop-preview-ghost):not(.smartcrop-cropped-preview)');
+                                const assetImageLayer = visual?.querySelector('.resource-visual-layer.asset-image') || curVueImg?.closest('.resource-visual-layer');
+                                if (assetImageLayer) {
+                                    assetImageLayer.classList.remove('has-image-crop');
+                                    assetImageLayer.style.removeProperty('--sb-visual-width');
+                                    assetImageLayer.style.removeProperty('--sb-visual-height');
+                                    assetImageLayer.style.removeProperty('--sb-visual-x');
+                                    assetImageLayer.style.removeProperty('--sb-visual-y');
+                                    assetImageLayer.style.removeProperty('--sb-crop-x');
+                                    assetImageLayer.style.removeProperty('--sb-crop-y');
+                                    assetImageLayer.style.removeProperty('--sb-crop-width');
+                                    assetImageLayer.style.removeProperty('--sb-crop-height');
+                                    assetImageLayer.style.removeProperty('overflow');
+                                    assetImageLayer.style.removeProperty('z-index');
+                                }
+                                const assetBaseLayer = visual?.querySelector('.resource-visual-layer.asset-base');
+                                if (assetBaseLayer) {
+                                    assetBaseLayer.style.removeProperty('--sb-visual-width');
+                                    assetBaseLayer.style.removeProperty('--sb-visual-height');
+                                    assetBaseLayer.style.removeProperty('--sb-visual-x');
+                                    assetBaseLayer.style.removeProperty('--sb-visual-y');
+                                    assetBaseLayer.style.removeProperty('z-index');
+                                }
+                                const vueImg = visual?.querySelector('img:not(.smartcrop-preview-ghost):not(.smartcrop-cropped-preview)');
+                                if (vueImg) {
+                                    vueImg.style.removeProperty('position');
+                                    vueImg.style.removeProperty('left');
+                                    vueImg.style.removeProperty('top');
+                                    vueImg.style.removeProperty('width');
+                                    vueImg.style.removeProperty('height');
+                                    vueImg.style.removeProperty('max-width');
+                                    vueImg.style.removeProperty('max-height');
+                                    vueImg.style.removeProperty('object-fit');
+                                    vueImg.style.removeProperty('opacity');
+                                    vueImg.style.removeProperty('pointer-events');
+                                }
+                                const badge = visual?.querySelector('.resource-visual-layer.resource-node-visual-symbol, .resource-visual-layer.style-badge, .resource-visual-layer.asset-identity');
+                                if (badge) {
+                                    badge.style.removeProperty('--sb-visual-x');
+                                    badge.style.removeProperty('--sb-visual-y');
+                                    badge.style.removeProperty('z-index');
+                                    badge.style.removeProperty('pointer-events');
+                                }
                             }
                             if (visual) {
-                                visual.classList.remove('smartcrop-preview-frame', 'is-cropped', 'is-revealing-ghost');
+                                visual.classList.remove('is-revealing-ghost');
+                            }
+                            if (area) {
+                                area.classList.remove('is-revealing-ghost');
                             }
                             layer.classList.remove('is-expanded-overlay', 'is-revealing-ghost');
                             if (frame) {
                                 frame.remove();
                                 frame = null;
                             }
+                            if (ghost) {
+                                ghost.remove();
+                                ghost = null;
+                            }
                             btn.remove();
                             delete layer._smartcropSyncFraming;
+                            delete layer._smartcropUpdateContext;
                         };
                     },
-                    update(layer, context) {
+                    update(layer, nextContext) {
+                        if (nextContext && typeof layer._smartcropUpdateContext === 'function') {
+                            layer._smartcropUpdateContext(nextContext);
+                        }
                         if (typeof layer._smartcropSyncFraming === 'function') {
                             layer._smartcropSyncFraming();
                         }
@@ -3206,6 +4405,9 @@ class SmartCropManager {
             if (!window.SmartBrowserPicker || typeof window.SmartBrowserPicker.registerPreviewAction !== 'function') {
                 return false;
             }
+            if (typeof window.SmartBrowserPicker.registerVisualOverlay === 'function') {
+                return false;
+            }
             if (window._smartcropSbActionRegistered) return true;
 
             try {
@@ -3214,6 +4416,9 @@ class SmartCropManager {
                     label: 'PLG_CONTENT_SMARTCROP_ACTION_CROP',
                     icon: 'fas fa-crop-simple',
                     applies: (context) => {
+                        if (window.SmartBrowserPicker && typeof window.SmartBrowserPicker.registerVisualOverlay === 'function') {
+                            return false;
+                        }
                         if (!context || !context.resource || context.resource.type !== 'image') {
                             return false;
                         }
@@ -3249,9 +4454,6 @@ class SmartCropManager {
                                 if (context.previewElement) {
                                     SmartCropManager.applyFramingToElement(context.previewElement, result, imageUrl);
                                 }
-                                if (typeof context.refresh === 'function') {
-                                    context.refresh();
-                                }
                             },
                             onRemove: () => {
                                 if (typeof context.setValue === 'function') {
@@ -3264,9 +4466,6 @@ class SmartCropManager {
                                 }
                                 if (context.previewElement) {
                                     SmartCropManager.clearFramingFromElement(context.previewElement);
-                                }
-                                if (typeof context.refresh === 'function') {
-                                    context.refresh();
                                 }
                             }
                         });
@@ -3591,6 +4790,197 @@ class SmartCropManager {
         } catch (e) {}
     }
 
+    static getRealmJson(context, fallbackWin = null) {
+        try {
+            if (typeof context?.setMetadata === 'function' && context.setMetadata.constructor) {
+                const j = context.setMetadata.constructor('return JSON')();
+                if (j && typeof j.parse === 'function') return j;
+            }
+        } catch (e) {}
+        try {
+            if (typeof context?.setValue === 'function' && context.setValue.constructor) {
+                const j = context.setValue.constructor('return JSON')();
+                if (j && typeof j.parse === 'function') return j;
+            }
+        } catch (e) {}
+        if (fallbackWin && fallbackWin.JSON) return fallbackWin.JSON;
+        if (context?.fieldElement?.ownerDocument?.defaultView?.JSON) {
+            return context.fieldElement.ownerDocument.defaultView.JSON;
+        }
+        return window.JSON;
+    }
+
+    static sanitizeJsonMetadata(data, realmJSON = null) {
+        if (data === null || data === undefined) return null;
+        const clean = (val, depth = 0) => {
+            if (depth > 20) return undefined;
+            if (val === undefined || typeof val === 'function' || typeof val === 'symbol') {
+                return undefined;
+            }
+            if (val === null || typeof val === 'string' || typeof val === 'boolean') {
+                return val;
+            }
+            if (typeof val === 'number') {
+                return Number.isFinite(val) ? val : null;
+            }
+            if (Array.isArray(val)) {
+                return val.map(item => clean(item, depth + 1)).filter(item => item !== undefined);
+            }
+            if (typeof val === 'object') {
+                const cleanedObj = {};
+                for (const [k, v] of Object.entries(val)) {
+                    const cleanedVal = clean(v, depth + 1);
+                    if (cleanedVal !== undefined) {
+                        cleanedObj[k] = cleanedVal;
+                    }
+                }
+                return cleanedObj;
+            }
+            return undefined;
+        };
+
+        const cleaned = clean(data);
+        if (cleaned === undefined) return null;
+        const jsonImpl = (realmJSON && typeof realmJSON.parse === 'function') ? realmJSON : JSON;
+        try {
+            return jsonImpl.parse(JSON.stringify(cleaned));
+        } catch (e) {
+            try {
+                return JSON.parse(JSON.stringify(cleaned));
+            } catch (err) {
+                return null;
+            }
+        }
+    }
+
+    static syncDirectToJoomlaFields(context, result, cropMetadata) {
+        if (!context) return;
+        const uri = result?.uri;
+        const initialAddress = context.getAddress?.() || context.resource?.id || '';
+        const isImageResource = context.resource?.type === 'image'
+            || (typeof initialAddress === 'string' && (initialAddress.includes('#joomlaImage://') || initialAddress.startsWith('image/')));
+
+        // 1. Direct Sync to Native Joomla Media Input (e.g. image_intro, image_fulltext, custom media fields)
+        try {
+            const fieldEl = context.fieldElement?.closest?.('.sb-selection-field') || context.fieldElement || document.querySelector('.sb-selection-field');
+            const form = fieldEl?.closest('form') || document.querySelector('form#item-form, form.form-validate, form');
+            if (form) {
+                const targetInputs = new Set();
+
+                // Inspect data-sb-article-media mapping
+                const rawMapping = fieldEl?.dataset?.sbArticleMedia;
+                if (rawMapping) {
+                    try {
+                        const mapping = JSON.parse(rawMapping);
+                        const role = mapping.role;
+                        const imgField = mapping.image;
+                        if (imgField) {
+                            const inp = form.elements.namedItem(imgField);
+                            if (inp) targetInputs.add(inp.tagName ? inp : inp[0]);
+                        }
+                        if (role) {
+                            const inp = form.elements.namedItem(`jform[images][image_${role}]`);
+                            if (inp) targetInputs.add(inp.tagName ? inp : inp[0]);
+                        }
+                        if (mapping.nativeNames) {
+                            Object.values(mapping.nativeNames).forEach(name => {
+                                const inp = form.elements.namedItem(name);
+                                if (inp) targetInputs.add(inp.tagName ? inp : inp[0]);
+                            });
+                        }
+                    } catch (e) {}
+                }
+
+                // Also inspect surrounding container (fieldset, control-group)
+                const container = fieldEl?.closest('[data-sb-native-media], .options-form, .control-group');
+                if (container) {
+                    container.querySelectorAll('input[name^="jform[images]"], input.field-media-input, joomla-field-media input').forEach(inp => {
+                        targetInputs.add(inp);
+                    });
+                }
+
+                if (uri && isImageResource) {
+                    targetInputs.forEach(input => {
+                        if (input && input.value !== uri) {
+                            input.value = uri;
+                            const jfm = input.closest('joomla-field-media');
+                            if (jfm) {
+                                jfm.validatedUrl = uri;
+                                if (typeof jfm.updatePreview === 'function') {
+                                    try { jfm.updatePreview(); } catch (e) {}
+                                }
+                                jfm.dispatchEvent(new CustomEvent('change', { bubbles: true, detail: { value: uri } }));
+                            }
+                            input.dispatchEvent(new Event('input', { bubbles: true }));
+                            input.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                    });
+                } else if (cropMetadata === null) {
+                    targetInputs.forEach(input => {
+                        if (input && input.value && input.value.includes('crop=')) {
+                            const cleaned = SmartCropManager.cleanCropFromJoomlaUri(input.value) || input.value.split('#')[0];
+                            if (input.value !== cleaned) {
+                                input.value = cleaned;
+                                const jfm = input.closest('joomla-field-media');
+                                if (jfm) {
+                                    jfm.validatedUrl = cleaned;
+                                    if (typeof jfm.updatePreview === 'function') {
+                                        try { jfm.updatePreview(); } catch (e) {}
+                                    }
+                                    jfm.dispatchEvent(new CustomEvent('change', { bubbles: true, detail: { value: cleaned } }));
+                                }
+                                input.dispatchEvent(new Event('input', { bubbles: true }));
+                                input.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        }
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn('[SmartCrop] syncDirectToJoomlaFields native inputs warning:', e);
+        }
+
+        // 2. Direct Sync to SmartBrowser Selection Field hidden input [data-sb-value] (fallback only if setMetadata is not supported)
+        if (typeof context.setMetadata !== 'function' && typeof context.setValue !== 'function') {
+            try {
+                const fieldEl = context.fieldElement?.closest?.('.sb-selection-field') || context.fieldElement || document.querySelector('.sb-selection-field');
+                const sbValueInput = fieldEl?.querySelector('[data-sb-value]');
+                if (sbValueInput && sbValueInput.value) {
+                    const parsed = JSON.parse(sbValueInput.value);
+                    if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) {
+                        let mutated = false;
+                        for (const item of parsed.items) {
+                            item.usage = item.usage || {};
+                            if (isImageResource) {
+                                if (uri) {
+                                    item.usage['ext.address'] = uri;
+                                    mutated = true;
+                                } else if (uri === '') {
+                                    delete item.usage['ext.address'];
+                                    mutated = true;
+                                }
+                            }
+                            if (cropMetadata) {
+                                item.usage['ext.smartcrop.crop'] = cropMetadata;
+                                mutated = true;
+                            } else if (cropMetadata === null) {
+                                delete item.usage['ext.smartcrop.crop'];
+                                mutated = true;
+                            }
+                        }
+                        if (mutated) {
+                            sbValueInput.value = JSON.stringify(parsed);
+                            sbValueInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            sbValueInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('[SmartCrop] syncDirectToJoomlaFields sbValue warning:', e);
+            }
+        }
+    }
+
     static initAll() {
         const els = document.querySelectorAll('joomla-field-media, .field-media-wrapper, input.field-media-input, [data-smartcrop-field], .smartcrop-field');
         els.forEach((el) => {
@@ -3600,6 +4990,9 @@ class SmartCropManager {
 
         // Register Selection Address codec on SmartBrowser
         SmartCropManager.registerSelectionAddressCodec();
+
+        // Register Image Presentation Provider on SmartBrowserPicker
+        SmartCropManager.registerSmartBrowserImagePresentation();
 
         // Register Visual Overlay on SmartBrowserPicker
         SmartCropManager.registerSmartBrowserVisualOverlay();
@@ -3629,13 +5022,20 @@ if (typeof window !== 'undefined') {
 
     window.SmartCropCloseModal = window.SmartCropCloseModal || function(modalEl) {
         if (!modalEl) {
-            modalEl = document.querySelector('[data-smartcrop-modal].smartcrop-modal-visible, [data-smartcrop-modal].show');
+            modalEl = document.querySelector('[data-smartcrop-modal].smartcrop-modal-visible, [data-smartcrop-modal].show, dialog[data-smartcrop-modal][open]');
         }
         if (!modalEl) return;
         modalEl.classList.remove('show', 'smartcrop-modal-visible');
         modalEl.style.display = 'none';
         modalEl.setAttribute('aria-hidden', 'true');
         modalEl.removeAttribute('aria-modal');
+        if (typeof modalEl.close === 'function') {
+            try {
+                if (modalEl.open) {
+                    modalEl.close();
+                }
+            } catch (e) {}
+        }
         document.body?.classList.remove('modal-open');
         if (modalEl._smartcropController) {
             try {
@@ -3684,10 +5084,12 @@ if (typeof document !== 'undefined') {
     document.addEventListener('shown.bs.tab', () => setTimeout(initSmartCrop, 50));
     document.addEventListener('smartbrowser:ready', () => {
         SmartCropManager.registerSelectionAddressCodec();
+        SmartCropManager.registerSmartBrowserImagePresentation();
         setTimeout(initSmartCrop, 50);
     });
     document.addEventListener('smartbrowser:collection-ready', () => {
         SmartCropManager.registerSelectionAddressCodec();
+        SmartCropManager.registerSmartBrowserImagePresentation();
         setTimeout(initSmartCrop, 50);
     });
     document.addEventListener('click', (e) => {
